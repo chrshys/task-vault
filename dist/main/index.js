@@ -24,7 +24,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // src/main/index.ts
 var import_electron = require("electron");
-var import_path = __toESM(require("path"));
+var import_path = __toESM(require("path"), 1);
 var mainWindow = null;
 function createWindow() {
   mainWindow = new import_electron.BrowserWindow({
