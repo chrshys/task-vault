@@ -1,59 +1,36 @@
-"use strict";
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+import { createRequire } from 'module';import { fileURLToPath } from 'url';import { dirname } from 'path';const require = createRequire(import.meta.url);const __filename = fileURLToPath(import.meta.url);const __dirname = dirname(__filename);
 
 // src/preload/index.ts
-var preload_exports = {};
-__export(preload_exports, {
-  api: () => api
-});
-module.exports = __toCommonJS(preload_exports);
-var import_electron = require("electron");
+import { contextBridge, ipcRenderer } from "electron";
 var api = {
-  readFile: (path) => import_electron.ipcRenderer.invoke("file:read", path),
-  writeFile: (path, data) => import_electron.ipcRenderer.invoke("file:write", { path, data }),
-  createFile: (type, folder, title) => import_electron.ipcRenderer.invoke("file:create", { type, folder, title }),
-  deleteFile: (path) => import_electron.ipcRenderer.invoke("file:delete", path),
-  moveFile: (from, to) => import_electron.ipcRenderer.invoke("file:move", { from, to }),
-  selectVaultFolder: () => import_electron.ipcRenderer.invoke("vault:select"),
-  initializeVault: (path) => import_electron.ipcRenderer.invoke("vault:init", path),
-  loadVault: (path) => import_electron.ipcRenderer.invoke("vault:load", path),
-  completeTask: (path) => import_electron.ipcRenderer.invoke("task:complete", path),
-  getSettings: () => import_electron.ipcRenderer.invoke("settings:get"),
-  setSettings: (settings) => import_electron.ipcRenderer.invoke("settings:set", settings),
+  readFile: (path) => ipcRenderer.invoke("file:read", path),
+  writeFile: (path, data) => ipcRenderer.invoke("file:write", { path, data }),
+  createFile: (type, folder, title) => ipcRenderer.invoke("file:create", { type, folder, title }),
+  deleteFile: (path) => ipcRenderer.invoke("file:delete", path),
+  moveFile: (from, to) => ipcRenderer.invoke("file:move", { from, to }),
+  selectVaultFolder: () => ipcRenderer.invoke("vault:select"),
+  initializeVault: (path) => ipcRenderer.invoke("vault:init", path),
+  loadVault: (path) => ipcRenderer.invoke("vault:load", path),
+  completeTask: (path) => ipcRenderer.invoke("task:complete", path),
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  setSettings: (settings) => ipcRenderer.invoke("settings:set", settings),
   onFileChanged: (callback) => {
     const listener = (_event, data) => callback(data);
-    import_electron.ipcRenderer.on("file:changed", listener);
-    return () => import_electron.ipcRenderer.removeListener("file:changed", listener);
+    ipcRenderer.on("file:changed", listener);
+    return () => ipcRenderer.removeListener("file:changed", listener);
   },
   onFileAdded: (callback) => {
     const listener = (_event, data) => callback(data);
-    import_electron.ipcRenderer.on("file:added", listener);
-    return () => import_electron.ipcRenderer.removeListener("file:added", listener);
+    ipcRenderer.on("file:added", listener);
+    return () => ipcRenderer.removeListener("file:added", listener);
   },
   onFileDeleted: (callback) => {
     const listener = (_event, path) => callback(path);
-    import_electron.ipcRenderer.on("file:deleted", listener);
-    return () => import_electron.ipcRenderer.removeListener("file:deleted", listener);
+    ipcRenderer.on("file:deleted", listener);
+    return () => ipcRenderer.removeListener("file:deleted", listener);
   }
 };
-import_electron.contextBridge.exposeInMainWorld("api", api);
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+contextBridge.exposeInMainWorld("api", api);
+export {
   api
-});
+};

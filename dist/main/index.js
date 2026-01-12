@@ -1,11 +1,17 @@
-"use strict";
+import { createRequire } from 'module';import { fileURLToPath } from 'url';import { dirname } from 'path';const require = createRequire(import.meta.url);const __filename = fileURLToPath(import.meta.url);const __dirname = dirname(__filename);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __copyProps = (to, from, except, desc) => {
@@ -29,7 +35,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var require_constants = __commonJS({
   "node_modules/picomatch/lib/constants.js"(exports2, module2) {
     "use strict";
-    var path5 = require("path");
+    var path5 = __require("path");
     var WIN_SLASH = "\\\\/";
     var WIN_NO_SLASH = `[^${WIN_SLASH}]`;
     var DOT_LITERAL = "\\.";
@@ -226,7 +232,7 @@ var require_constants = __commonJS({
 var require_utils = __commonJS({
   "node_modules/picomatch/lib/utils.js"(exports2) {
     "use strict";
-    var path5 = require("path");
+    var path5 = __require("path");
     var win32 = process.platform === "win32";
     var {
       REGEX_BACKSLASH,
@@ -1390,7 +1396,7 @@ var require_parse = __commonJS({
 var require_picomatch = __commonJS({
   "node_modules/picomatch/lib/picomatch.js"(exports2, module2) {
     "use strict";
-    var path5 = require("path");
+    var path5 = __require("path");
     var scan = require_scan();
     var parse2 = require_parse();
     var utils = require_utils();
@@ -1539,10 +1545,10 @@ var require_picomatch2 = __commonJS({
 var require_readdirp = __commonJS({
   "node_modules/readdirp/index.js"(exports2, module2) {
     "use strict";
-    var fs3 = require("fs");
-    var { Readable } = require("stream");
-    var sysPath = require("path");
-    var { promisify } = require("util");
+    var fs3 = __require("fs");
+    var { Readable } = __require("stream");
+    var sysPath = __require("path");
+    var { promisify } = __require("util");
     var picomatch = require_picomatch2();
     var readdir = promisify(fs3.readdir);
     var stat = promisify(fs3.stat);
@@ -2012,8 +2018,8 @@ var require_glob_parent = __commonJS({
   "node_modules/glob-parent/index.js"(exports2, module2) {
     "use strict";
     var isGlob = require_is_glob();
-    var pathPosixDirname = require("path").posix.dirname;
-    var isWin32 = require("os").platform() === "win32";
+    var pathPosixDirname = __require("path").posix.dirname;
+    var isWin32 = __require("os").platform() === "win32";
     var slash = "/";
     var backslash = /\\/g;
     var enclosure = /[\{\[].*[\}\]]$/;
@@ -2380,7 +2386,7 @@ var require_to_regex_range = __commonJS({
 var require_fill_range = __commonJS({
   "node_modules/fill-range/index.js"(exports2, module2) {
     "use strict";
-    var util = require("util");
+    var util = __require("util");
     var toRegexRange = require_to_regex_range();
     var isObject = (val) => val !== null && typeof val === "object" && !Array.isArray(val);
     var transform = (toNumber) => {
@@ -3398,7 +3404,7 @@ var require_binary_extensions2 = __commonJS({
 var require_is_binary_path = __commonJS({
   "node_modules/is-binary-path/index.js"(exports2, module2) {
     "use strict";
-    var path5 = require("path");
+    var path5 = __require("path");
     var binaryExtensions = require_binary_extensions2();
     var extensions = new Set(binaryExtensions);
     module2.exports = (filePath) => extensions.has(path5.extname(filePath).slice(1).toLowerCase());
@@ -3409,9 +3415,9 @@ var require_is_binary_path = __commonJS({
 var require_constants3 = __commonJS({
   "node_modules/chokidar/lib/constants.js"(exports2) {
     "use strict";
-    var { sep } = require("path");
+    var { sep } = __require("path");
     var { platform } = process;
-    var os = require("os");
+    var os = __require("os");
     exports2.EV_ALL = "all";
     exports2.EV_READY = "ready";
     exports2.EV_ADD = "add";
@@ -3473,9 +3479,9 @@ var require_constants3 = __commonJS({
 var require_nodefs_handler = __commonJS({
   "node_modules/chokidar/lib/nodefs-handler.js"(exports2, module2) {
     "use strict";
-    var fs3 = require("fs");
-    var sysPath = require("path");
-    var { promisify } = require("util");
+    var fs3 = __require("fs");
+    var sysPath = __require("path");
+    var { promisify } = __require("util");
     var isBinaryPath = require_is_binary_path();
     var {
       isWindows,
@@ -3964,12 +3970,12 @@ var require_nodefs_handler = __commonJS({
 var require_fsevents_handler = __commonJS({
   "node_modules/chokidar/lib/fsevents-handler.js"(exports2, module2) {
     "use strict";
-    var fs3 = require("fs");
-    var sysPath = require("path");
-    var { promisify } = require("util");
+    var fs3 = __require("fs");
+    var sysPath = __require("path");
+    var { promisify } = __require("util");
     var fsevents;
     try {
-      fsevents = require("fsevents");
+      fsevents = __require("fsevents");
     } catch (error) {
       if (process.env.CHOKIDAR_PRINT_FSEVENTS_REQUIRE_ERROR) console.error(error);
     }
@@ -4360,10 +4366,10 @@ var require_fsevents_handler = __commonJS({
 var require_chokidar = __commonJS({
   "node_modules/chokidar/index.js"(exports2) {
     "use strict";
-    var { EventEmitter } = require("events");
-    var fs3 = require("fs");
-    var sysPath = require("path");
-    var { promisify } = require("util");
+    var { EventEmitter } = __require("events");
+    var fs3 = __require("fs");
+    var sysPath = __require("path");
+    var { promisify } = __require("util");
     var readdirp = require_readdirp();
     var anymatch = require_anymatch().default;
     var globParent = require_glob_parent();
@@ -6121,7 +6127,7 @@ var require_binary = __commonJS({
     "use strict";
     var NodeBuffer;
     try {
-      _require = require;
+      _require = __require;
       NodeBuffer = _require("buffer").Buffer;
     } catch (__) {
     }
@@ -6410,7 +6416,7 @@ var require_function = __commonJS({
     "use strict";
     var esprima;
     try {
-      _require = require;
+      _require = __require;
       esprima = _require("esprima");
     } catch (_) {
       if (typeof window !== "undefined") esprima = window.esprima;
@@ -8467,7 +8473,7 @@ var require_parse3 = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs3 = require("fs");
+    var fs3 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -8580,34 +8586,34 @@ var require_gray_matter = __commonJS({
 });
 
 // src/main/index.ts
-var import_electron2 = require("electron");
-var import_path4 = __toESM(require("path"), 1);
+import { app as app2, BrowserWindow } from "electron";
+import path4 from "path";
 
 // src/main/ipc.ts
-var import_electron = require("electron");
-var import_promises2 = __toESM(require("fs/promises"), 1);
-var import_path3 = __toESM(require("path"), 1);
+import { ipcMain, dialog, app } from "electron";
+import fs2 from "fs/promises";
+import path3 from "path";
 
 // src/main/services/file-service.ts
 var import_chokidar = __toESM(require_chokidar(), 1);
-var import_promises = __toESM(require("fs/promises"), 1);
-var import_path2 = __toESM(require("path"), 1);
+import fs from "fs/promises";
+import path2 from "path";
 
 // src/main/utils/frontmatter.ts
 var import_gray_matter = __toESM(require_gray_matter(), 1);
 
 // node_modules/nanoid/index.js
-var import_node_crypto = require("node:crypto");
+import { webcrypto as crypto } from "node:crypto";
 var POOL_SIZE_MULTIPLIER = 128;
 var pool;
 var poolOffset;
 function fillPool(bytes) {
   if (!pool || pool.length < bytes) {
     pool = Buffer.allocUnsafe(bytes * POOL_SIZE_MULTIPLIER);
-    import_node_crypto.webcrypto.getRandomValues(pool);
+    crypto.getRandomValues(pool);
     poolOffset = 0;
   } else if (poolOffset + bytes > pool.length) {
-    import_node_crypto.webcrypto.getRandomValues(pool);
+    crypto.getRandomValues(pool);
     poolOffset = 0;
   }
   poolOffset += bytes;
@@ -8648,12 +8654,12 @@ function extractId(filename) {
 }
 
 // src/main/utils/frontmatter.ts
-var import_path = __toESM(require("path"), 1);
+import path from "path";
 function parseFile(filePath, fileContent) {
   try {
     const { data, content } = (0, import_gray_matter.default)(fileContent);
     const meta = data;
-    const filename = import_path.default.basename(filePath);
+    const filename = path.basename(filePath);
     const id = extractId(filename) || filename.replace(".md", "");
     const titleMatch = content.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : meta.type === "folder" || meta.type === "project" ? meta.name : filename.replace(/^[a-z0-9]{4}-/, "").replace(".md", "").replace(/-/g, " ");
@@ -8699,23 +8705,23 @@ async function initializeVault(folderPath) {
     version: 1,
     created: (/* @__PURE__ */ new Date()).toISOString()
   };
-  await import_promises.default.writeFile(
-    import_path2.default.join(folderPath, ".vault.json"),
+  await fs.writeFile(
+    path2.join(folderPath, ".vault.json"),
     JSON.stringify(config, null, 2)
   );
-  const inboxPath = import_path2.default.join(folderPath, "Inbox");
-  await import_promises.default.mkdir(inboxPath, { recursive: true });
+  const inboxPath = path2.join(folderPath, "Inbox");
+  await fs.mkdir(inboxPath, { recursive: true });
   const inboxMeta = {
     type: "folder",
     name: "Inbox",
     sort_order: 0,
     created: (/* @__PURE__ */ new Date()).toISOString()
   };
-  await import_promises.default.writeFile(
-    import_path2.default.join(inboxPath, "_folder.md"),
+  await fs.writeFile(
+    path2.join(inboxPath, "_folder.md"),
     serializeFile({
       id: "inbox",
-      path: import_path2.default.join(inboxPath, "_folder.md"),
+      path: path2.join(inboxPath, "_folder.md"),
       meta: inboxMeta,
       content: "",
       title: "Inbox"
@@ -8726,13 +8732,13 @@ async function loadVault(folderPath) {
   vaultPath = folderPath;
   const items = [];
   async function scanDirectory(dirPath) {
-    const entries = await import_promises.default.readdir(dirPath, { withFileTypes: true });
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = import_path2.default.join(dirPath, entry.name);
+      const fullPath = path2.join(dirPath, entry.name);
       if (entry.isDirectory() && !entry.name.startsWith(".")) {
         await scanDirectory(fullPath);
       } else if (entry.name.endsWith(".md")) {
-        const content = await import_promises.default.readFile(fullPath, "utf-8");
+        const content = await fs.readFile(fullPath, "utf-8");
         const item = parseFile(fullPath, content);
         if (item) {
           items.push(item);
@@ -8748,20 +8754,20 @@ async function watchVault(mainWindow2) {
   if (watcher) {
     await watcher.close();
   }
-  watcher = import_chokidar.default.watch(import_path2.default.join(vaultPath, "**/*.md"), {
+  watcher = import_chokidar.default.watch(path2.join(vaultPath, "**/*.md"), {
     ignored: /(^|[\/\\])\../,
     persistent: true,
     ignoreInitial: true
   });
   watcher.on("change", async (filePath) => {
-    const content = await import_promises.default.readFile(filePath, "utf-8");
+    const content = await fs.readFile(filePath, "utf-8");
     const item = parseFile(filePath, content);
     if (item) {
       mainWindow2.webContents.send("file:changed", item);
     }
   });
   watcher.on("add", async (filePath) => {
-    const content = await import_promises.default.readFile(filePath, "utf-8");
+    const content = await fs.readFile(filePath, "utf-8");
     const item = parseFile(filePath, content);
     if (item) {
       mainWindow2.webContents.send("file:added", item);
@@ -8772,12 +8778,12 @@ async function watchVault(mainWindow2) {
   });
 }
 async function readFile(filePath) {
-  const content = await import_promises.default.readFile(filePath, "utf-8");
+  const content = await fs.readFile(filePath, "utf-8");
   return parseFile(filePath, content);
 }
 async function writeFile(filePath, item) {
   const content = serializeFile(item);
-  await import_promises.default.writeFile(filePath, content);
+  await fs.writeFile(filePath, content);
 }
 async function createFile(type, folder, title) {
   const id = generateId();
@@ -8788,14 +8794,14 @@ async function createFile(type, folder, title) {
     case "folder":
       meta = { type: "folder", name: title, sort_order: 0, created: now };
       filename = "_folder.md";
-      folder = import_path2.default.join(folder, title);
-      await import_promises.default.mkdir(folder, { recursive: true });
+      folder = path2.join(folder, title);
+      await fs.mkdir(folder, { recursive: true });
       break;
     case "project":
       meta = { type: "project", name: title, sort_order: 0, created: now };
       filename = "_project.md";
-      folder = import_path2.default.join(folder, title);
-      await import_promises.default.mkdir(folder, { recursive: true });
+      folder = path2.join(folder, title);
+      await fs.mkdir(folder, { recursive: true });
       break;
     case "task":
       meta = { type: "task", status: "pending", parent: null, repeat: null, created: now, modified: now };
@@ -8806,16 +8812,16 @@ async function createFile(type, folder, title) {
       filename = createFilename(id, title);
       break;
   }
-  const filePath = import_path2.default.join(folder, filename);
+  const filePath = path2.join(folder, filename);
   const item = { id, path: filePath, meta, content: "", title };
   await writeFile(filePath, item);
   return item;
 }
 async function deleteFile(filePath) {
-  await import_promises.default.unlink(filePath);
+  await fs.unlink(filePath);
 }
 async function moveFile(from, to) {
-  await import_promises.default.rename(from, to);
+  await fs.rename(from, to);
 }
 function stopWatching() {
   if (watcher) {
@@ -8825,7 +8831,7 @@ function stopWatching() {
 }
 
 // src/main/ipc.ts
-var SETTINGS_PATH = import_path3.default.join(import_electron.app.getPath("userData"), "settings.json");
+var SETTINGS_PATH = path3.join(app.getPath("userData"), "settings.json");
 var defaultSettings = {
   vaultPath: null,
   theme: "system",
@@ -8836,56 +8842,56 @@ var defaultSettings = {
 };
 async function loadSettings() {
   try {
-    const content = await import_promises2.default.readFile(SETTINGS_PATH, "utf-8");
+    const content = await fs2.readFile(SETTINGS_PATH, "utf-8");
     return { ...defaultSettings, ...JSON.parse(content) };
   } catch {
     return defaultSettings;
   }
 }
 async function saveSettings(settings) {
-  await import_promises2.default.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+  await fs2.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 function registerIpcHandlers() {
-  import_electron.ipcMain.handle("settings:get", async () => {
+  ipcMain.handle("settings:get", async () => {
     return loadSettings();
   });
-  import_electron.ipcMain.handle("settings:set", async (_event, settings) => {
+  ipcMain.handle("settings:set", async (_event, settings) => {
     await saveSettings(settings);
     return settings;
   });
-  import_electron.ipcMain.handle("vault:select", async () => {
-    const result = await import_electron.dialog.showOpenDialog({
+  ipcMain.handle("vault:select", async () => {
+    const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
       title: "Choose vault location"
     });
     return result.canceled ? null : result.filePaths[0];
   });
-  import_electron.ipcMain.handle("vault:init", async (_event, folderPath) => {
+  ipcMain.handle("vault:init", async (_event, folderPath) => {
     await initializeVault(folderPath);
     const settings = await loadSettings();
     settings.vaultPath = folderPath;
     await saveSettings(settings);
     return loadVault(folderPath);
   });
-  import_electron.ipcMain.handle("vault:load", async (_event, folderPath) => {
+  ipcMain.handle("vault:load", async (_event, folderPath) => {
     return loadVault(folderPath);
   });
-  import_electron.ipcMain.handle("file:read", async (_event, filePath) => {
+  ipcMain.handle("file:read", async (_event, filePath) => {
     return readFile(filePath);
   });
-  import_electron.ipcMain.handle("file:write", async (_event, { path: filePath, data }) => {
+  ipcMain.handle("file:write", async (_event, { path: filePath, data }) => {
     await writeFile(filePath, data);
   });
-  import_electron.ipcMain.handle("file:create", async (_event, { type, folder, title }) => {
+  ipcMain.handle("file:create", async (_event, { type, folder, title }) => {
     return createFile(type, folder, title);
   });
-  import_electron.ipcMain.handle("file:delete", async (_event, filePath) => {
+  ipcMain.handle("file:delete", async (_event, filePath) => {
     await deleteFile(filePath);
   });
-  import_electron.ipcMain.handle("file:move", async (_event, { from, to }) => {
+  ipcMain.handle("file:move", async (_event, { from, to }) => {
     await moveFile(from, to);
   });
-  import_electron.ipcMain.handle("task:complete", async (_event, filePath) => {
+  ipcMain.handle("task:complete", async (_event, filePath) => {
     const item = await readFile(filePath);
     if (item && item.meta.type === "task") {
       item.meta.status = "completed";
@@ -8899,14 +8905,14 @@ function registerIpcHandlers() {
 // src/main/index.ts
 var mainWindow = null;
 function createWindow() {
-  mainWindow = new import_electron2.BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: "hiddenInset",
     webPreferences: {
-      preload: import_path4.default.join(__dirname, "../preload/index.js"),
+      preload: path4.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -8915,7 +8921,7 @@ function createWindow() {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(import_path4.default.join(__dirname, "../renderer/index.html"));
+    mainWindow.loadFile(path4.join(__dirname, "../renderer/index.html"));
   }
   mainWindow.webContents.on("did-finish-load", () => {
     if (mainWindow && getVaultPath()) {
@@ -8927,16 +8933,16 @@ function createWindow() {
     stopWatching();
   });
 }
-import_electron2.app.whenReady().then(() => {
+app2.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
 });
-import_electron2.app.on("window-all-closed", () => {
+app2.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    import_electron2.app.quit();
+    app2.quit();
   }
 });
-import_electron2.app.on("activate", () => {
+app2.on("activate", () => {
   if (mainWindow === null) {
     createWindow();
   }
