@@ -1,0 +1,13 @@
+{
+  "appId": "com.taskvault.app",
+  "productName": "TaskVault",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "mac": {
+    "category": "public.app-category.productivity"
+  }
+}
