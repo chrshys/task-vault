@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react'
 import { VaultProvider, useVault } from './contexts/VaultContext'
-import { UIProvider } from './contexts/UIContext'
+import { UIProvider, useUI } from './contexts/UIContext'
 import { Welcome } from './components/Welcome'
+import { Sidebar } from './components/layout/Sidebar'
+import { TaskList } from './components/layout/TaskList'
+import { TaskDetail } from './components/layout/TaskDetail'
 import type { AppSettings } from '@shared/types'
+
+function MainLayout() {
+  const { selectedTaskId } = useUI()
+
+  return (
+    <div className="h-screen flex bg-gray-900 text-white">
+      <div className="w-64 border-r border-gray-700 flex-shrink-0">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex">
+        <div className={`${selectedTaskId ? 'w-1/2' : 'flex-1'} border-r border-gray-700`}>
+          <TaskList />
+        </div>
+        {selectedTaskId && (
+          <div className="w-1/2">
+            <TaskDetail />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function AppContent() {
   const { vaultPath, loadVault, loading } = useVault()
@@ -31,16 +56,7 @@ function AppContent() {
     return <Welcome />
   }
 
-  return (
-    <div className="h-screen flex bg-gray-900 text-white">
-      <div className="w-64 border-r border-gray-700 p-4">
-        Sidebar placeholder
-      </div>
-      <div className="flex-1 p-4">
-        Main content placeholder
-      </div>
-    </div>
-  )
+  return <MainLayout />
 }
 
 export default function App() {
