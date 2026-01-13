@@ -24,6 +24,7 @@ export interface ProjectMeta extends BaseMeta {
   icon?: string
   color?: string
   sort_order?: number
+  section?: string
 }
 
 export interface TaskMeta extends BaseMeta {
