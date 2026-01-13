@@ -3,8 +3,9 @@ import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { DateTimePicker } from '../ui/DateTimePicker'
 import { RichTextEditor } from '../ui/RichTextEditor'
+import { RecurrencePicker } from '../ui/RecurrencePicker'
 import { SubtaskList } from '../task/SubtaskList'
-import type { VaultItem, TaskMeta } from '@shared/types'
+import type { VaultItem, TaskMeta, RepeatConfig } from '@shared/types'
 
 export function TaskDetail() {
   const { items, updateItem, deleteItem } = useVault()
@@ -52,6 +53,14 @@ export function TaskDetail() {
     })
   }
 
+  const handleRepeatChange = (repeat: RepeatConfig | null) => {
+    if (!localItem || localItem.meta.type !== 'task') return
+    setLocalItem({
+      ...localItem,
+      meta: { ...localItem.meta, repeat } as TaskMeta,
+    })
+  }
+
   if (!localItem) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500 bg-gray-800">
@@ -61,7 +70,9 @@ export function TaskDetail() {
   }
 
   const isTask = localItem.meta.type === 'task'
-  const due = isTask ? (localItem.meta as TaskMeta).due : undefined
+  const taskMeta = isTask ? (localItem.meta as TaskMeta) : null
+  const due = taskMeta?.due
+  const repeat = taskMeta?.repeat
 
   return (
     <div className="h-full flex flex-col bg-gray-800">
@@ -95,6 +106,10 @@ export function TaskDetail() {
               value={due ? new Date(due) : null}
               onChange={(date) => handleDueChange(date?.toISOString() || '')}
               placeholder="Add due date..."
+            />
+            <RecurrencePicker
+              value={repeat}
+              onChange={handleRepeatChange}
             />
           </div>
         )}
