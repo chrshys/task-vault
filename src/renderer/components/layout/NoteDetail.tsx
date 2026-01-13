@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { VaultNote, NoteMeta } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
+import { RichTextEditor } from '../ui/RichTextEditor'
 
 interface NoteDetailProps {
   note: VaultNote
@@ -64,11 +65,11 @@ export function NoteDetail({ note }: NoteDetailProps) {
           placeholder="Note title..."
         />
 
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full h-64 bg-transparent border border-gray-700 rounded p-3 text-sm text-gray-200 resize-none outline-none focus:border-gray-500"
+        <RichTextEditor
+          content={content}
+          onChange={setContent}
           placeholder="Write your note..."
+          className="min-h-[300px]"
         />
       </div>
     </div>
