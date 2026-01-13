@@ -2,28 +2,41 @@ import { useEffect, useState } from 'react'
 import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
 import { Welcome } from './components/Welcome'
+import { TitleBar } from './components/layout/TitleBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { TaskList } from './components/layout/TaskList'
 import { TaskDetail } from './components/layout/TaskDetail'
-import type { AppSettings } from '@shared/types'
+import { NoteDetail } from './components/layout/NoteDetail'
+import type { AppSettings, VaultNote } from '@shared/types'
 
 function MainLayout() {
   const { selectedTaskId } = useUI()
+  const { items } = useVault()
+
+  const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
+  const isNote = selectedItem?.meta.type === 'note'
 
   return (
-    <div className="h-screen flex bg-gray-900 text-white">
-      <div className="w-64 border-r border-gray-700 flex-shrink-0">
-        <Sidebar />
-      </div>
-      <div className="flex-1 flex">
-        <div className={`${selectedTaskId ? 'w-1/2' : 'flex-1'} border-r border-gray-700`}>
-          <TaskList />
+    <div className="h-screen flex flex-col bg-gray-900 text-white">
+      <TitleBar />
+      <div className="flex-1 flex min-h-0">
+        <div className="w-64 border-r border-gray-700 flex-shrink-0">
+          <Sidebar />
         </div>
-        {selectedTaskId && (
-          <div className="w-1/2">
-            <TaskDetail />
+        <div className="flex-1 flex">
+          <div className={`${selectedTaskId ? 'w-1/2' : 'flex-1'} border-r border-gray-700`}>
+            <TaskList />
           </div>
-        )}
+          {selectedTaskId && (
+            <div className="w-1/2">
+              {isNote ? (
+                <NoteDetail note={selectedItem as VaultNote} />
+              ) : (
+                <TaskDetail />
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
