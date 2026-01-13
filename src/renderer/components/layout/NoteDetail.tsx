@@ -3,6 +3,8 @@ import type { VaultNote, NoteMeta } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { RichTextEditor } from '../ui/RichTextEditor'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useConfirm } from '../../hooks/useConfirm'
 
 interface NoteDetailProps {
   note: VaultNote
@@ -13,6 +15,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const { setSelectedTaskId } = useUI()
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState(note.content || '')
+  const { confirm, dialogProps } = useConfirm()
 
   useEffect(() => {
     setTitle(note.title)
@@ -35,6 +38,13 @@ export function NoteDetail({ note }: NoteDetailProps) {
   }, [title, content, handleSave])
 
   const handleDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Note',
+      message: `Are you sure you want to delete "${note.title}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!confirmed) return
     await deleteItem(note.path)
     setSelectedTaskId(null)
   }
@@ -72,6 +82,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
           className="min-h-[300px]"
         />
       </div>
+      {dialogProps && <ConfirmDialog {...dialogProps} />}
     </div>
   )
 }
