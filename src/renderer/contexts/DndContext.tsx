@@ -19,7 +19,7 @@ interface DndProviderProps {
 }
 
 export function DndProvider({ children }: DndProviderProps) {
-  const { items, updateItem, moveProject, createFolderWithProjects, updateSortOrder } = useVault()
+  const { items, updateItem, moveProject, createFolderWithProjects, updateSortOrder, vaultPath } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
   const [pendingGroup, setPendingGroup] = useState<{
     draggedPath: string
@@ -96,12 +96,22 @@ export function DndProvider({ children }: DndProviderProps) {
         return
       }
 
-      // Project dropped on project = prompt for folder name
+      // Project dropped on project
       if (draggedNode.type === 'project' && targetNode.type === 'project') {
-        setPendingGroup({
-          draggedPath: draggedNode.path,
-          targetPath: targetNode.path,
-        })
+        // Check if target project is inside a folder (not at root)
+        const targetProjectParent = path.dirname(targetNode.path)
+        const isTargetInFolder = vaultPath && targetProjectParent !== vaultPath
+
+        if (isTargetInFolder) {
+          // Move dragged project into the same folder as target
+          await moveProject(draggedNode.path, targetProjectParent)
+        } else {
+          // Both at root - prompt to create a new folder
+          setPendingGroup({
+            draggedPath: draggedNode.path,
+            targetPath: targetNode.path,
+          })
+        }
         return
       }
 
