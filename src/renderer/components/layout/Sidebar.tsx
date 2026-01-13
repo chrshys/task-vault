@@ -1,9 +1,13 @@
+import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import type { TreeNode } from '@shared/types'
 
 function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
   const { setSelectedView } = useUI()
+  const { setNodeRef, isOver } = useDroppable({
+    id: node.path,
+  })
 
   const handleClick = () => {
     setSelectedView(node.type as 'folder' | 'project', node.path)
@@ -12,8 +16,11 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
   return (
     <div>
       <button
+        ref={setNodeRef}
         onClick={handleClick}
-        className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-700 text-sm text-gray-300"
+        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm text-gray-300 ${
+          isOver ? 'bg-blue-600/30 ring-1 ring-blue-500' : 'hover:bg-gray-700'
+        }`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
       >
         <span className="flex items-center gap-2">
@@ -45,11 +52,7 @@ export function Sidebar() {
 
   return (
     <div className="h-full flex flex-col bg-gray-900">
-      <div className="p-4 border-b border-gray-700">
-        <h1 className="font-semibold text-white">TaskVault</h1>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 pt-4">
         <div className="mb-4">
           <button
             onClick={() => setSelectedView('today')}
