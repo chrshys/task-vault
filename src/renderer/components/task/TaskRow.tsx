@@ -2,6 +2,11 @@ import { format, isToday, isTomorrow, isPast } from 'date-fns'
 import { useDraggable } from '@dnd-kit/core'
 import type { VaultItem, TaskMeta } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
+import { useVault } from '../../contexts/VaultContext'
+import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useConfirm } from '../../hooks/useConfirm'
 
 interface TaskRowProps {
   item: VaultItem
@@ -19,9 +24,12 @@ function formatDueDate(due: string): string {
 
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
+  const { deleteItem, duplicateItem, convertItem } = useVault()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
   })
+  const contextMenu = useContextMenu<VaultItem>()
+  const { confirm, dialogProps } = useConfirm()
   const isSelected = selectedTaskId === item.id
   const isTask = item.meta.type === 'task'
   const taskMeta = isTask ? (item.meta as TaskMeta) : null
@@ -33,7 +41,31 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined
 
+  const handleDelete = async () => {
+    contextMenu.close()
+    const confirmed = await confirm({
+      title: 'Delete Task',
+      message: `Are you sure you want to delete "${item.title}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (confirmed) {
+      await deleteItem(item.path)
+    }
+  }
+
+  const handleDuplicate = async () => {
+    contextMenu.close()
+    await duplicateItem(item)
+  }
+
+  const handleConvertToNote = async () => {
+    contextMenu.close()
+    await convertItem(item, 'note')
+  }
+
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -43,6 +75,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
         isSelected ? 'bg-gray-700' : 'hover:bg-gray-800'
       } ${isDragging ? 'opacity-50' : ''}`}
       onClick={() => setSelectedTaskId(item.id)}
+      onContextMenu={(e) => contextMenu.open(e, item)}
     >
       {isTask && (
         <button
@@ -90,5 +123,16 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
         </span>
       )}
     </div>
+    {contextMenu.isOpen && (
+      <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
+        <ContextMenuItem onClick={handleDuplicate}>Duplicate</ContextMenuItem>
+        {isTask && (
+          <ContextMenuItem onClick={handleConvertToNote}>Convert to Note</ContextMenuItem>
+        )}
+        <ContextMenuItem onClick={handleDelete} variant="danger">Delete</ContextMenuItem>
+      </ContextMenu>
+    )}
+    {dialogProps && <ConfirmDialog {...dialogProps} />}
+    </>
   )
 }

@@ -12,6 +12,8 @@ interface VaultContextValue {
   createItem: (type: ItemType, folder: string, title: string) => Promise<VaultItem>
   updateItem: (item: VaultItem) => Promise<void>
   deleteItem: (path: string) => Promise<void>
+  duplicateItem: (item: VaultItem) => Promise<VaultItem>
+  convertItem: (item: VaultItem, toType: 'task' | 'note') => Promise<void>
   getItemsByParent: (parentId: string | null) => VaultItem[]
   getTodayTasks: () => VaultItem[]
   getNext7DaysTasks: () => VaultItem[]
@@ -113,6 +115,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const deleteItem = useCallback(async (itemPath: string) => {
     await window.api.deleteFile(itemPath)
   }, [])
+
+  const duplicateItem = useCallback(async (item: VaultItem) => {
+    const folder = path.dirname(item.path)
+    const newTitle = `${item.title} (copy)`
+    const newItem = await createItem(item.meta.type as ItemType, folder, newTitle)
+    const duplicated: VaultItem = {
+      ...newItem,
+      content: item.content,
+      meta: { ...item.meta, created: new Date().toISOString(), modified: new Date().toISOString() },
+    }
+    await updateItem(duplicated)
+    return duplicated
+  }, [createItem, updateItem])
+
+  const convertItem = useCallback(async (item: VaultItem, toType: 'task' | 'note') => {
+    if (item.meta.type === toType) return
+
+    const newMeta = toType === 'task'
+      ? { ...item.meta, type: 'task' as const, status: 'pending' as const, due: undefined }
+      : { ...item.meta, type: 'note' as const, status: undefined, due: undefined }
+
+    await updateItem({ ...item, meta: newMeta })
+  }, [updateItem])
 
   const getItemsByParent = useCallback((parentId: string | null) => {
     return Array.from(items.values()).filter(item => {
@@ -240,6 +265,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         createItem,
         updateItem,
         deleteItem,
+        duplicateItem,
+        convertItem,
         getItemsByParent,
         getTodayTasks,
         getNext7DaysTasks,
