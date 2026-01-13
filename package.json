@@ -15,12 +15,14 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@types/react-datepicker": "^6.2.0",
     "chokidar": "^3.6.0",
     "date-fns": "^3.6.0",
     "gray-matter": "^4.0.3",
     "nanoid": "^5.0.7",
     "path-browserify": "^1.0.1",
     "react": "^18.3.1",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
