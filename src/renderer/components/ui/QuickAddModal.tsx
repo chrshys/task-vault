@@ -36,7 +36,7 @@ export function QuickAddModal({ type, onClose }: QuickAddModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-32 z-50" onClick={onClose}>
       <div
-        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="p-4">
@@ -50,13 +50,13 @@ export function QuickAddModal({ type, onClose }: QuickAddModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={type === 'task' ? 'What needs to be done?' : 'Note title...'}
-            className="w-full text-lg bg-transparent border-none outline-none text-gray-100 placeholder-gray-500"
+            className="w-full text-lg bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-700">
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1 text-sm text-gray-400 hover:bg-gray-700 rounded"
+              className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
             >
               Cancel
             </button>
