@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import { format } from 'date-fns'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
+import { DateTimePicker } from '../ui/DateTimePicker'
 import type { VaultItem, TaskMeta } from '@shared/types'
 
 export function TaskDetail() {
@@ -89,11 +89,10 @@ export function TaskDetail() {
 
         {isTask && (
           <div className="flex gap-2 mb-4">
-            <input
-              type="datetime-local"
-              value={due ? format(new Date(due), "yyyy-MM-dd'T'HH:mm") : ''}
-              onChange={(e) => handleDueChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
-              className="px-3 py-2 bg-gray-700 rounded text-sm text-gray-200"
+            <DateTimePicker
+              value={due ? new Date(due) : null}
+              onChange={(date) => handleDueChange(date?.toISOString() || '')}
+              placeholder="Add due date..."
             />
           </div>
         )}
