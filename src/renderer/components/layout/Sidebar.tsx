@@ -20,8 +20,8 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
       <button
         ref={setNodeRef}
         onClick={handleClick}
-        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm text-gray-300 ${
-          isOver ? 'bg-blue-600/30 ring-1 ring-blue-500' : 'hover:bg-gray-700'
+        className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm text-gray-700 dark:text-gray-300 ${
+          isOver ? 'bg-blue-600/30 ring-1 ring-blue-500' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
         }`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
       >
@@ -45,10 +45,12 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
 }
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder } = useVault()
+  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject } = useVault()
   const { selectedView, setSelectedView } = useUI()
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
 
   const todayCount = getTodayTasks().length
   const next7Count = getNext7DaysTasks().length
@@ -70,14 +72,30 @@ export function Sidebar() {
     }
   }
 
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return
+    await createProject(newProjectName.trim())
+    setNewProjectName('')
+    setShowNewProject(false)
+  }
+
+  const handleProjectKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCreateProject()
+    } else if (e.key === 'Escape') {
+      setNewProjectName('')
+      setShowNewProject(false)
+    }
+  }
+
   return (
-    <div className="h-full flex flex-col bg-gray-900">
+    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
       <div className="flex-1 overflow-y-auto p-2 pt-4">
         <div className="mb-4">
           <button
             onClick={() => setSelectedView('today')}
             className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm ${
-              selectedView === 'today' ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700'
+              selectedView === 'today' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="flex items-center gap-2">
@@ -92,7 +110,7 @@ export function Sidebar() {
           <button
             onClick={() => setSelectedView('next7')}
             className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm ${
-              selectedView === 'next7' ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700'
+              selectedView === 'next7' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="flex items-center gap-2">
@@ -107,7 +125,7 @@ export function Sidebar() {
           <button
             onClick={() => setSelectedView('inbox')}
             className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm ${
-              selectedView === 'inbox' ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700'
+              selectedView === 'inbox' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="flex items-center gap-2">
@@ -120,7 +138,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <div className="border-t border-gray-700 pt-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
           <p className="px-2 py-1 text-xs text-gray-500 uppercase tracking-wide">
             Lists
           </p>
@@ -130,7 +148,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="p-2 border-t border-gray-700 space-y-2">
+      <div className="p-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
         <div className="flex justify-center">
           <ThemeToggle />
         </div>
@@ -142,7 +160,7 @@ export function Sidebar() {
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Folder name..."
-              className="flex-1 px-2 py-1 text-sm bg-gray-800 border border-gray-700 rounded text-gray-100 placeholder-gray-500 outline-none focus:border-blue-500"
+              className="flex-1 px-2 py-1 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500"
               autoFocus
             />
             <button
@@ -156,9 +174,36 @@ export function Sidebar() {
         ) : (
           <button
             onClick={() => setShowNewFolder(true)}
-            className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-300 text-left"
+            className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left"
           >
             + New Folder
+          </button>
+        )}
+        {showNewProject ? (
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={handleProjectKeyDown}
+              placeholder="Project name..."
+              className="flex-1 px-2 py-1 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim()}
+              className="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left"
+          >
+            + New Project
           </button>
         )}
       </div>
