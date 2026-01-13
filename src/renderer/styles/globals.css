@@ -87,3 +87,34 @@ body {
 .dark .react-datepicker__time-list-item:hover {
   background-color: #4b5563;
 }
+
+/* TipTap editor styles */
+.ProseMirror {
+  outline: none;
+  min-height: 100px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #6b7280;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror p {
+  margin: 0.5em 0;
+}
