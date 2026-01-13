@@ -14,6 +14,7 @@ interface VaultContextValue {
   deleteItem: (path: string) => Promise<void>
   duplicateItem: (item: VaultItem) => Promise<VaultItem>
   convertItem: (item: VaultItem, toType: 'task' | 'note') => Promise<void>
+  createFolder: (name: string, parentPath?: string) => Promise<VaultItem>
   getItemsByParent: (parentId: string | null) => VaultItem[]
   getTodayTasks: () => VaultItem[]
   getNext7DaysTasks: () => VaultItem[]
@@ -138,6 +139,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     await updateItem({ ...item, meta: newMeta })
   }, [updateItem])
+
+  const createFolder = useCallback(async (name: string, parentPath?: string) => {
+    const basePath = parentPath || vaultPath
+    if (!basePath) throw new Error('No vault path set')
+    return createItem('folder', basePath, name)
+  }, [vaultPath, createItem])
 
   const getItemsByParent = useCallback((parentId: string | null) => {
     return Array.from(items.values()).filter(item => {
@@ -267,6 +274,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         deleteItem,
         duplicateItem,
         convertItem,
+        createFolder,
         getItemsByParent,
         getTodayTasks,
         getNext7DaysTasks,
