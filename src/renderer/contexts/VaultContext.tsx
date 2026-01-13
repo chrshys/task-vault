@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { VaultItem, TreeNode, ItemType } from '@shared/types'
+import type { VaultItem, VaultTask, TreeNode, ItemType, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
 
 interface VaultContextValue {
@@ -16,6 +16,8 @@ interface VaultContextValue {
   getTodayTasks: () => VaultItem[]
   getNext7DaysTasks: () => VaultItem[]
   getInboxItems: () => VaultItem[]
+  createSubtask: (parentId: string, title: string) => Promise<VaultItem | null>
+  getSubtasks: (parentId: string) => VaultTask[]
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -66,7 +68,7 @@ function buildTree(items: Map<string, VaultItem>, vaultPath: string): TreeNode[]
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Map<string, VaultItem>>(new Map())
   const [tree, setTree] = useState<TreeNode[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [vaultPath, setVaultPath] = useState<string | null>(null)
 
   const rebuildTree = useCallback((itemsMap: Map<string, VaultItem>, vault: string) => {
@@ -161,6 +163,31 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     })
   }, [items, vaultPath])
 
+  const getSubtasks = useCallback((parentId: string): VaultTask[] => {
+    return Array.from(items.values()).filter(item => {
+      if (item.meta.type !== 'task') return false
+      return (item.meta as TaskMeta).parent === parentId
+    }) as VaultTask[]
+  }, [items])
+
+  const createSubtask = useCallback(async (parentId: string, title: string): Promise<VaultItem | null> => {
+    const parent = items.get(parentId)
+    if (!parent || parent.meta.type !== 'task') return null
+
+    const folder = path.dirname(parent.path)
+    const newItem = await createItem('task', folder, title)
+
+    if (newItem) {
+      const updatedItem: VaultItem = {
+        ...newItem,
+        meta: { ...newItem.meta, parent: parentId } as TaskMeta,
+      }
+      await updateItem(updatedItem)
+      return updatedItem
+    }
+    return null
+  }, [items, createItem, updateItem])
+
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
       setItems(prev => {
@@ -217,6 +244,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         getTodayTasks,
         getNext7DaysTasks,
         getInboxItems,
+        createSubtask,
+        getSubtasks,
       }}
     >
       {children}
