@@ -10,7 +10,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { TreeNode } from '@shared/types'
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject } = useVault()
+  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject } = useVault()
   const { selectedView, selectedPath, setSelectedView, sidebarCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
   const [showNewProject, setShowNewProject] = useState(false)
@@ -18,10 +18,18 @@ export function Sidebar() {
   const [showListsPopover, setShowListsPopover] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
+  const [editingProject, setEditingProject] = useState<{node: TreeNode, name: string} | null>(null)
+  const editingProjectRef = useRef<{node: TreeNode, name: string} | null>(null)
   const listsPopoverRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
   const contextMenu = useContextMenu<TreeNode>()
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    editingProjectRef.current = editingProject
+  }, [editingProject])
 
   const todayCount = getTodayTasks().length
   const next7Count = getNext7DaysTasks().length
@@ -47,6 +55,33 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showListsPopover, showNewProject, showSettingsMenu])
 
+  // Handle click outside for rename input - use ref to always get latest values
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const current = editingProjectRef.current
+      if (!current) return
+      if (editInputRef.current && !editInputRef.current.contains(e.target as Node)) {
+        // Trigger save on click outside
+        const newName = current.name.trim()
+        const oldPath = current.node.path
+        const oldName = current.node.name
+
+        setEditingProject(null)
+
+        if (newName && newName !== oldName) {
+          renameProject(oldPath, newName).then((newPath) => {
+            if (selectedPath === oldPath) {
+              setSelectedView('project', newPath)
+            }
+          })
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [renameProject, selectedPath, setSelectedView])
+
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return
     await createProject(newProjectName.trim())
@@ -68,6 +103,54 @@ export function Sidebar() {
     await deleteProject(deleteConfirm.node.path)
     setDeleteConfirm({open: false, node: null})
   }
+
+  const handleStartRename = (node: TreeNode) => {
+    setEditingProject({ node, name: node.name })
+    // Focus will be handled by useEffect
+  }
+
+  const handleRenameSubmit = () => {
+    const current = editingProjectRef.current
+    if (!current) return
+    const newName = current.name.trim()
+    const oldPath = current.node.path
+    const oldName = current.node.name
+
+    // Clear editing state first
+    setEditingProject(null)
+
+    if (!newName || newName === oldName) {
+      return
+    }
+
+    // Perform rename asynchronously after clearing state
+    renameProject(oldPath, newName).then((newPath) => {
+      if (selectedPath === oldPath) {
+        setSelectedView('project', newPath)
+      }
+    })
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleRenameSubmit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditingProject(null)
+    }
+  }
+
+  // Focus edit input only when editing starts (not on every keystroke)
+  const editingNodeId = editingProject?.node.id
+  const prevEditingNodeIdRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (editingNodeId && editingNodeId !== prevEditingNodeIdRef.current && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+    prevEditingNodeIdRef.current = editingNodeId
+  }, [editingNodeId])
 
   // Inbox drop zone component (expanded view)
   const InboxDropZone = () => {
@@ -118,6 +201,32 @@ export function Sidebar() {
     )
   }
 
+  // Render project edit input
+  const renderProjectEditInput = (node: TreeNode) => {
+    const isSelected = selectedView === 'project' && selectedPath === node.path
+    return (
+      <div
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
+          isSelected
+            ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+            : 'text-gray-600 dark:text-gray-400'
+        }`}
+      >
+        <span className="flex items-center gap-2.5 flex-1 min-w-0">
+          <ListTodo size={16} className={`flex-shrink-0 ${isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
+          <input
+            ref={editInputRef}
+            type="text"
+            value={editingProject?.name ?? ''}
+            onChange={(e) => editingProject && setEditingProject({ ...editingProject, name: e.target.value })}
+            onKeyDown={handleRenameKeyDown}
+            className="flex-1 min-w-0 px-1 py-0 bg-white dark:bg-gray-800 border border-blue-500 rounded text-[13px] text-gray-900 dark:text-gray-100 outline-none"
+          />
+        </span>
+      </div>
+    )
+  }
+
   // Render a single project item (drop zone for cross-project task moves)
   const ProjectItem = ({ node, onClick }: { node: TreeNode, onClick?: () => void }) => {
     const isSelected = selectedView === 'project' && selectedPath === node.path
@@ -132,11 +241,11 @@ export function Sidebar() {
     }
 
     return (
-      <button
+      <div
         ref={setNodeRef}
         onClick={handleClick}
         onContextMenu={(e) => contextMenu.open(e, node)}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
           isOver
             ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
             : isSelected
@@ -144,14 +253,14 @@ export function Sidebar() {
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
         }`}
       >
-        <span className="flex items-center gap-2.5">
-          <ListTodo size={16} className={isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+        <span className="flex items-center gap-2.5 flex-1 min-w-0">
+          <ListTodo size={16} className={`flex-shrink-0 ${isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
           <span className="truncate">{node.name}</span>
         </span>
         {node.count !== undefined && node.count > 0 && (
           <span className={`text-xs tabular-nums ${isOver ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{node.count}</span>
         )}
-      </button>
+      </div>
     )
   }
 
@@ -204,11 +313,13 @@ export function Sidebar() {
                     Projects
                   </p>
                   {tree.map((node) => (
-                    <ProjectItem
-                      key={node.id}
-                      node={node}
-                      onClick={() => setShowListsPopover(false)}
-                    />
+                    editingProject?.node.id === node.id
+                      ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                      : <ProjectItem
+                          key={node.id}
+                          node={node}
+                          onClick={() => setShowListsPopover(false)}
+                        />
                   ))}
                 </div>
               )}
@@ -372,7 +483,9 @@ export function Sidebar() {
           </div>
           <div className="space-y-0.5">
             {tree.map((node) => (
-              <ProjectItem key={node.id} node={node} />
+              editingProject?.node.id === node.id
+                ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                : <ProjectItem key={node.id} node={node} />
             ))}
           </div>
         </div>
@@ -436,6 +549,10 @@ export function Sidebar() {
 
       {contextMenu.isOpen && contextMenu.data && contextMenu.data.type === 'project' && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
+          <ContextMenuItem onClick={() => {
+            handleStartRename(contextMenu.data!)
+            contextMenu.close()
+          }}>Rename</ContextMenuItem>
           <ContextMenuItem variant="danger" onClick={() => {
             setDeleteConfirm({open: true, node: contextMenu.data})
             contextMenu.close()

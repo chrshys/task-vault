@@ -1,11 +1,13 @@
-import { useMemo, useState, useRef } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
+import { useContextMenu } from '../../hooks/useContextMenu'
 import { TaskRow } from '../task/TaskRow'
 import { EmptyState } from '../ui/EmptyState'
 import { DueDatePicker } from '../ui/DueDatePicker'
+import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import type { VaultItem, RepeatConfig, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
 
@@ -26,14 +28,23 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
 }
 
 export function TaskList() {
-  const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem } = useVault()
-  const { selectedView, selectedPath } = useUI()
+  const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem, renameProject } = useVault()
+  const { selectedView, selectedPath, setSelectedView } = useUI()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [createType, setCreateType] = useState<'task' | 'note'>('task')
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [selectedDueDate, setSelectedDueDate] = useState<Date | null>(null)
   const [selectedRepeat, setSelectedRepeat] = useState<RepeatConfig | null>(null)
+  const [editingTitle, setEditingTitle] = useState<string | null>(null)
+  const editingTitleRef = useRef<string | null>(null)
   const inputWrapperRef = useRef<HTMLDivElement>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const contextMenu = useContextMenu()
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    editingTitleRef.current = editingTitle
+  }, [editingTitle])
 
   const displayItems = useMemo(() => {
     const sortBySortOrder = (a: VaultItem, b: VaultItem) =>
@@ -46,12 +57,11 @@ export function TaskList() {
         return getNext7DaysTasks().sort(sortBySortOrder)
       case 'inbox':
         return getInboxItems().sort(sortBySortOrder)
-      case 'folder':
       case 'project':
         if (!selectedPath) return []
         return Array.from(items.values())
           .filter(item => {
-            if (item.meta.type === 'folder' || item.meta.type === 'project') return false
+            if (item.meta.type === 'project') return false
             // Filter out subtasks - only show top-level tasks
             if (item.meta.type === 'task' && (item.meta as TaskMeta).parent) return false
             return path.dirname(item.path) === selectedPath
@@ -67,7 +77,6 @@ export function TaskList() {
       case 'today': return 'Today'
       case 'next7': return 'Next 7 Days'
       case 'inbox': return 'Inbox'
-      case 'folder':
       case 'project':
         if (!selectedPath) return ''
         return path.basename(selectedPath)
@@ -112,10 +121,105 @@ export function TaskList() {
     setIsInputFocused(false)
   }
 
+  const handleStartTitleEdit = () => {
+    if (selectedView !== 'project' || !selectedPath) return
+    setEditingTitle(viewTitle)
+  }
+
+  const handleTitleSubmit = () => {
+    const currentEditingTitle = editingTitleRef.current
+    if (currentEditingTitle === null || !selectedPath) {
+      setEditingTitle(null)
+      return
+    }
+    const newName = currentEditingTitle.trim()
+    const currentPath = selectedPath
+    const currentTitle = viewTitle
+
+    // Clear editing state first
+    setEditingTitle(null)
+
+    if (!newName || newName === currentTitle) {
+      return
+    }
+
+    // Perform rename asynchronously
+    renameProject(currentPath, newName).then((newPath) => {
+      setSelectedView('project', newPath)
+    })
+  }
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleTitleSubmit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditingTitle(null)
+    }
+  }
+
+  // Track if we're currently editing (for focus effect)
+  const isEditing = editingTitle !== null
+  const wasEditingRef = useRef(false)
+
+  // Focus title input only when editing starts (not on every keystroke)
+  useEffect(() => {
+    if (isEditing && !wasEditingRef.current && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+    wasEditingRef.current = isEditing
+  }, [isEditing])
+
+  // Handle click outside for title edit input - use ref to always get latest value
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const currentEditingTitle = editingTitleRef.current
+      if (currentEditingTitle === null || !selectedPath) return
+      if (titleInputRef.current && !titleInputRef.current.contains(e.target as Node)) {
+        const newName = currentEditingTitle.trim()
+        const currentPath = selectedPath
+        const currentTitle = viewTitle
+
+        setEditingTitle(null)
+
+        if (newName && newName !== currentTitle) {
+          renameProject(currentPath, newName).then((newPath) => {
+            setSelectedView('project', newPath)
+          })
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [selectedPath, viewTitle, renameProject, setSelectedView])
+
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
       <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{viewTitle}</h2>
+        {editingTitle !== null ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            className="text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 outline-none w-full"
+          />
+        ) : (
+          <h2
+            className={`text-2xl font-bold text-gray-900 dark:text-white ${selectedView === 'project' ? 'cursor-context-menu' : ''}`}
+            onContextMenu={(e) => {
+              if (selectedView === 'project' && selectedPath) {
+                contextMenu.open(e, null)
+              }
+            }}
+          >
+            {viewTitle}
+          </h2>
+        )}
       </div>
 
       <div className="max-w-3xl w-full mx-auto px-4 pb-4">
@@ -227,9 +331,9 @@ export function TaskList() {
               title: 'Inbox is empty',
               description: 'Items without a folder appear here.',
             } : {
-              icon: '(folder)',
+              icon: '(project)',
               title: 'No tasks yet',
-              description: 'Create your first task in this folder.',
+              description: 'Create your first task in this project.',
             })}
           />
         ) : (
@@ -245,6 +349,15 @@ export function TaskList() {
         )}
         </div>
       </div>
+
+      {contextMenu.isOpen && selectedView === 'project' && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
+          <ContextMenuItem onClick={() => {
+            handleStartTitleEdit()
+            contextMenu.close()
+          }}>Rename</ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   )
 }

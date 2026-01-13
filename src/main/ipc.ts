@@ -78,6 +78,10 @@ export function registerIpcHandlers(): void {
     await fileService.deleteDirectory(dirPath)
   })
 
+  ipcMain.handle('directory:rename', async (_event, { oldPath, newName }: { oldPath: string; newName: string }) => {
+    return fileService.renameDirectory(oldPath, newName)
+  })
+
   ipcMain.handle('file:move', async (_event, { from, to }: { from: string; to: string }) => {
     await fileService.moveFile(from, to)
   })

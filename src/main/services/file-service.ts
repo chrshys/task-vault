@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron'
 import chokidar, { FSWatcher } from 'chokidar'
 import fs from 'fs/promises'
 import path from 'path'
-import type { ItemType, VaultItem, VaultConfig, FolderMeta, ProjectMeta, TaskMeta, NoteMeta } from '../../shared/types'
+import type { ItemType, VaultItem, VaultConfig, ProjectMeta, TaskMeta, NoteMeta } from '../../shared/types'
 import { parseFile, serializeFile } from '../utils/frontmatter'
 import { generateId } from '../utils/id'
 import { createFilename } from '../utils/slug'
@@ -26,26 +26,9 @@ export async function initializeVault(folderPath: string): Promise<void> {
     JSON.stringify(config, null, 2)
   )
 
+  // Create Inbox directory (no project marker - it's a special system folder)
   const inboxPath = path.join(folderPath, 'Inbox')
   await fs.mkdir(inboxPath, { recursive: true })
-
-  const inboxMeta: FolderMeta = {
-    type: 'folder',
-    name: 'Inbox',
-    sort_order: 0,
-    created: new Date().toISOString(),
-  }
-
-  await fs.writeFile(
-    path.join(inboxPath, '_folder.md'),
-    serializeFile({
-      id: 'inbox',
-      path: path.join(inboxPath, '_folder.md'),
-      meta: inboxMeta,
-      content: '',
-      title: 'Inbox',
-    })
-  )
 }
 
 export async function loadVault(folderPath: string): Promise<VaultItem[]> {
@@ -127,21 +110,13 @@ export async function createFile(
 ): Promise<VaultItem> {
   const now = new Date().toISOString()
 
-  let meta: FolderMeta | ProjectMeta | TaskMeta | NoteMeta
+  let meta: ProjectMeta | TaskMeta | NoteMeta
   let filename: string
   let id: string
 
   switch (type) {
-    case 'folder':
-      meta = { type: 'folder', name: title, sort_order: 0, created: now }
-      filename = '_folder.md'
-      folder = path.join(folder, title)
-      await fs.mkdir(folder, { recursive: true })
-      // For folders, use the directory path as ID (guaranteed unique)
-      id = folder
-      break
     case 'project':
-      meta = { type: 'project', name: title, sort_order: 0, created: now }
+      meta = { type: 'project', name: title, created: now }
       filename = '_project.md'
       folder = path.join(folder, title)
       await fs.mkdir(folder, { recursive: true })
@@ -174,6 +149,13 @@ export async function deleteFile(filePath: string): Promise<void> {
 export async function deleteDirectory(dirPath: string): Promise<void> {
   // Remove directory and all contents recursively
   await fs.rm(dirPath, { recursive: true, force: true })
+}
+
+export async function renameDirectory(oldPath: string, newName: string): Promise<string> {
+  const parentDir = path.dirname(oldPath)
+  const newPath = path.join(parentDir, newName)
+  await fs.rename(oldPath, newPath)
+  return newPath
 }
 
 export async function moveFile(from: string, to: string): Promise<void> {

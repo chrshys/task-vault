@@ -1,4 +1,4 @@
-export type ItemType = 'folder' | 'project' | 'task' | 'note'
+export type ItemType = 'project' | 'task' | 'note'
 export type TaskStatus = 'pending' | 'completed'
 export type RepeatFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type RepeatFrom = 'due_date' | 'completion_date'
@@ -18,20 +18,12 @@ export interface BaseMeta {
   modified?: string
 }
 
-export interface FolderMeta extends BaseMeta {
-  type: 'folder'
-  name: string
-  icon?: string
-  color?: string
-  sort_order: number
-}
-
 export interface ProjectMeta extends BaseMeta {
   type: 'project'
   name: string
   icon?: string
   color?: string
-  sort_order: number
+  sort_order?: number
 }
 
 export interface TaskMeta extends BaseMeta {
@@ -54,7 +46,7 @@ export interface NoteMeta extends BaseMeta {
   sort_order?: number
 }
 
-export type ItemMeta = FolderMeta | ProjectMeta | TaskMeta | NoteMeta
+export type ItemMeta = ProjectMeta | TaskMeta | NoteMeta
 
 export interface VaultItem {
   id: string
@@ -62,10 +54,6 @@ export interface VaultItem {
   meta: ItemMeta
   content: string
   title: string
-}
-
-export interface VaultFolder extends VaultItem {
-  meta: FolderMeta
 }
 
 export interface VaultProject extends VaultItem {
@@ -80,7 +68,7 @@ export interface VaultNote extends VaultItem {
   meta: NoteMeta
 }
 
-export type VaultItemUnion = VaultFolder | VaultProject | VaultTask | VaultNote
+export type VaultItemUnion = VaultProject | VaultTask | VaultNote
 
 export interface AppSettings {
   vaultPath: string | null
@@ -96,7 +84,7 @@ export interface VaultConfig {
   created: string
 }
 
-export type ViewType = 'today' | 'next7' | 'inbox' | 'folder' | 'project'
+export type ViewType = 'today' | 'next7' | 'inbox' | 'project'
 
 export interface TreeNode {
   id: string

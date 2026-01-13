@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { VaultItem, VaultTask, TreeNode, ItemType, ItemMeta, TaskMeta, NoteMeta, FolderMeta, ProjectMeta, RepeatConfig } from '@shared/types'
+import type { VaultItem, VaultTask, TreeNode, ItemType, ItemMeta, TaskMeta, NoteMeta, RepeatConfig } from '@shared/types'
 import path from 'path-browserify'
 
 interface VaultContextValue {
@@ -14,81 +14,54 @@ interface VaultContextValue {
   deleteItem: (path: string) => Promise<void>
   duplicateItem: (item: VaultItem) => Promise<VaultItem>
   convertItem: (item: VaultItem, toType: 'task' | 'note') => Promise<void>
-  createFolder: (name: string, parentPath?: string) => Promise<VaultItem>
-  createProject: (name: string, parentPath?: string) => Promise<VaultItem>
+  createProject: (name: string) => Promise<VaultItem>
+  renameProject: (projectPath: string, newName: string) => Promise<string>
   getItemsByParent: (parentId: string | null) => VaultItem[]
   getTodayTasks: () => VaultItem[]
   getNext7DaysTasks: () => VaultItem[]
   getInboxItems: () => VaultItem[]
   createSubtask: (parentId: string, title: string, dueDate?: Date | null, repeat?: RepeatConfig | null) => Promise<VaultItem | null>
   getSubtasks: (parentId: string) => VaultTask[]
-  ungroupFolder: (folderPath: string) => Promise<void>
   deleteProject: (projectPath: string) => Promise<void>
-  moveProject: (projectPath: string, targetFolderPath: string) => Promise<void>
-  createFolderWithProjects: (folderName: string, projectPaths: string[]) => Promise<VaultItem>
   updateSortOrder: (itemPath: string, newOrder: number) => Promise<void>
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
 
-function buildTree(items: Map<string, VaultItem>, vaultPath: string): TreeNode[] {
-  const tree: TreeNode[] = []
-  const folderMap = new Map<string, TreeNode>()
-  // Track sort_order for each node path
-  const sortOrderMap = new Map<string, number>()
+function buildTree(items: Map<string, VaultItem>): TreeNode[] {
+  const projects: TreeNode[] = []
+  const projectMap = new Map<string, TreeNode>()
 
+  // First pass: create project nodes
   items.forEach((item) => {
-    if (item.meta.type === 'folder' || item.meta.type === 'project') {
+    if (item.meta.type === 'project') {
       const dirPath = path.dirname(item.path)
-      const meta = item.meta as FolderMeta | ProjectMeta
       const node: TreeNode = {
         id: item.id,
         name: item.title,
-        type: item.meta.type,
+        type: 'project',
         path: dirPath,
         children: [],
         count: 0,
       }
-      folderMap.set(dirPath, node)
-      sortOrderMap.set(dirPath, meta.sort_order ?? Infinity)
+      projectMap.set(dirPath, node)
+      projects.push(node)
     }
   })
 
+  // Second pass: count tasks/notes in each project
   items.forEach((item) => {
     if (item.meta.type === 'task' || item.meta.type === 'note') {
       const dirPath = path.dirname(item.path)
-      const parentNode = folderMap.get(dirPath)
-      if (parentNode) {
-        parentNode.count = (parentNode.count || 0) + 1
+      const projectNode = projectMap.get(dirPath)
+      if (projectNode) {
+        projectNode.count = (projectNode.count || 0) + 1
       }
     }
   })
 
-  folderMap.forEach((node, nodePath) => {
-    const parentPath = path.dirname(nodePath)
-    const parentNode = folderMap.get(parentPath)
-
-    if (parentNode && parentPath !== nodePath) {
-      parentNode.children.push(node)
-    } else if (nodePath !== vaultPath && node.name !== 'Inbox') {
-      tree.push(node)
-    }
-  })
-
-  // Sort helper: by sort_order first, then alphabetically
-  const sortNodes = (nodes: TreeNode[]): TreeNode[] => {
-    return nodes.sort((a, b) => {
-      const orderA = sortOrderMap.get(a.path) ?? Infinity
-      const orderB = sortOrderMap.get(b.path) ?? Infinity
-      if (orderA !== orderB) return orderA - orderB
-      return a.name.localeCompare(b.name)
-    }).map(node => ({
-      ...node,
-      children: sortNodes(node.children)
-    }))
-  }
-
-  return sortNodes(tree)
+  // Sort alphabetically by name
+  return projects.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -97,8 +70,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [vaultPath, setVaultPath] = useState<string | null>(null)
 
-  const rebuildTree = useCallback((itemsMap: Map<string, VaultItem>, vault: string) => {
-    setTree(buildTree(itemsMap, vault))
+  const rebuildTree = useCallback((itemsMap: Map<string, VaultItem>) => {
+    setTree(buildTree(itemsMap))
   }, [])
 
   const loadVault = useCallback(async (folderPath: string) => {
@@ -107,7 +80,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildTree(itemsMap, folderPath)
+    rebuildTree(itemsMap)
     setLoading(false)
   }, [rebuildTree])
 
@@ -117,7 +90,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildTree(itemsMap, folderPath)
+    rebuildTree(itemsMap)
     setLoading(false)
   }, [rebuildTree])
 
@@ -145,7 +118,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       const next = new Map(prev)
       next.set(item.id, item)
-      if (vaultPath) rebuildTree(next, vaultPath)
+      rebuildTree(next)
       return next
     })
     return item
@@ -195,16 +168,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await updateItem({ ...item, meta: newMeta as TaskMeta | NoteMeta })
   }, [updateItem])
 
-  const createFolder = useCallback(async (name: string, parentPath?: string) => {
-    const basePath = parentPath || vaultPath
-    if (!basePath) throw new Error('No vault path set')
-    return createItem('folder', basePath, name)
-  }, [vaultPath, createItem])
-
-  const createProject = useCallback(async (name: string, parentPath?: string) => {
-    const basePath = parentPath || vaultPath
-    if (!basePath) throw new Error('No vault path set')
-    return createItem('project', basePath, name)
+  const createProject = useCallback(async (name: string) => {
+    if (!vaultPath) throw new Error('No vault path set')
+    return createItem('project', vaultPath, name)
   }, [vaultPath, createItem])
 
   const getItemsByParent = useCallback((parentId: string | null) => {
@@ -251,7 +217,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const inboxPath = path.join(vaultPath, 'Inbox')
 
     return Array.from(items.values()).filter(item => {
-      if (item.meta.type === 'folder' || item.meta.type === 'project') return false
+      if (item.meta.type === 'project') return false
       return item.path.startsWith(inboxPath)
     })
   }, [items, vaultPath])
@@ -281,12 +247,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return null
   }, [items, createItem, updateItem])
 
-  // Find an item by its directory path (for folders/projects, path is the directory they represent)
-  const findItemByDirPath = useCallback((dirPath: string): VaultItem | undefined => {
+  // Find a project by its directory path
+  const findProjectByDirPath = useCallback((dirPath: string): VaultItem | undefined => {
     for (const item of items.values()) {
-      if (item.meta.type === 'folder' || item.meta.type === 'project') {
-        // For folders/projects, the item's path is the .folder.md/.project.md file,
-        // but the directory it represents is path.dirname(item.path)
+      if (item.meta.type === 'project') {
         if (path.dirname(item.path) === dirPath) {
           return item
         }
@@ -305,94 +269,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     })
   }, [items])
 
-  // Get all projects that are direct children of a folder
-  const getProjectsInFolder = useCallback((folderPath: string): VaultItem[] => {
-    return Array.from(items.values()).filter(item => {
-      if (item.meta.type === 'project') {
-        const projectDir = path.dirname(item.path)
-        const parentDir = path.dirname(projectDir)
-        return parentDir === folderPath
-      }
-      return false
-    })
-  }, [items])
-
-  const ungroupFolder = useCallback(async (folderPath: string) => {
-    if (!vaultPath) throw new Error('No vault path set')
-
-    // Find the folder item
-    const folderItem = findItemByDirPath(folderPath)
-    if (!folderItem || folderItem.meta.type !== 'folder') {
-      throw new Error('Folder not found')
-    }
-
-    // Track items to add/remove from state
-    const itemsToRemove: string[] = [folderItem.id]
-    const itemsToAdd: VaultItem[] = []
-
-    // Get all projects in this folder
-    const projects = getProjectsInFolder(folderPath)
-
-    // Move each project to root (vaultPath)
-    for (const project of projects) {
-      const projectDir = path.dirname(project.path)
-      const projectName = path.basename(projectDir)
-      const newProjectDir = path.join(vaultPath, projectName)
-      const newProjectPath = path.join(newProjectDir, '.project.md')
-
-      // Update project item path
-      const updatedProject: VaultItem = {
-        ...project,
-        id: newProjectDir,
-        path: newProjectPath,
-      }
-      await updateItem(updatedProject)
-      itemsToRemove.push(project.id)
-      itemsToAdd.push(updatedProject)
-
-      // Move all items inside the project
-      const projectItems = getItemsInDirectory(projectDir)
-      for (const item of projectItems) {
-        const oldItemPath = item.path
-        const itemName = path.basename(item.path)
-        const newItemPath = path.join(newProjectDir, itemName)
-        const updatedItem: VaultItem = {
-          ...item,
-          id: newItemPath, // Update ID to new path
-          path: newItemPath,
-        }
-        await updateItem(updatedItem)
-        await deleteItem(oldItemPath)
-        itemsToRemove.push(item.id)
-        itemsToAdd.push(updatedItem)
-      }
-
-      // Delete old project marker and directory
-      await deleteItem(project.path)
-      await window.api.deleteDirectory(projectDir)
-    }
-
-    // Delete the folder marker and directory
-    await deleteItem(folderItem.path)
-    await window.api.deleteDirectory(folderPath)
-
-    // Update state immediately for responsive UI
-    setItems(prev => {
-      const next = new Map(prev)
-      for (const id of itemsToRemove) {
-        next.delete(id)
-      }
-      for (const item of itemsToAdd) {
-        next.set(item.id, item)
-      }
-      if (vaultPath) rebuildTree(next, vaultPath)
-      return next
-    })
-  }, [vaultPath, findItemByDirPath, getProjectsInFolder, getItemsInDirectory, updateItem, deleteItem, rebuildTree])
-
   const deleteProject = useCallback(async (projectPath: string) => {
     // Find the project item
-    const projectItem = findItemByDirPath(projectPath)
+    const projectItem = findProjectByDirPath(projectPath)
     if (!projectItem || projectItem.meta.type !== 'project') {
       throw new Error('Project not found')
     }
@@ -421,91 +300,67 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       for (const id of itemsToRemove) {
         next.delete(id)
       }
-      if (vaultPath) rebuildTree(next, vaultPath)
+      rebuildTree(next)
       return next
     })
-  }, [findItemByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildTree])
+  }, [findProjectByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildTree])
 
-  const moveProject = useCallback(async (projectPath: string, targetFolderPath: string) => {
-    // Find the project item
-    const projectItem = findItemByDirPath(projectPath)
-    if (!projectItem || projectItem.meta.type !== 'project') {
-      throw new Error('Project not found')
-    }
+  const renameProject = useCallback(async (projectPath: string, newName: string): Promise<string> => {
+    // Get project item before renaming (we need the current state)
+    const projectItem = findProjectByDirPath(projectPath)
 
-    const projectName = path.basename(projectPath)
-    const newProjectDir = path.join(targetFolderPath, projectName)
-    const newProjectFilePath = path.join(newProjectDir, '.project.md')
+    // Rename directory on disk and get new path
+    const newPath = await window.api.renameDirectory(projectPath, newName)
 
-    // Track items to add/remove from state
-    const itemsToRemove: string[] = [projectItem.id]
-    const itemsToAdd: VaultItem[] = []
-
-    // Update project item path and ID
-    const updatedProject: VaultItem = {
-      ...projectItem,
-      id: newProjectDir,
-      path: newProjectFilePath,
-    }
-    await updateItem(updatedProject)
-    itemsToAdd.push(updatedProject)
-
-    // Move all items inside the project
-    const projectItems = getItemsInDirectory(projectPath)
-    for (const item of projectItems) {
-      const oldItemPath = item.path
-      const itemName = path.basename(item.path)
-      const newItemPath = path.join(newProjectDir, itemName)
-      const updatedItem: VaultItem = {
-        ...item,
-        id: newItemPath, // Update ID to new path
-        path: newItemPath,
-      }
-      await updateItem(updatedItem)
-      await deleteItem(oldItemPath)
-
-      itemsToRemove.push(item.id)
-      itemsToAdd.push(updatedItem)
-    }
-
-    // Delete old project marker and directory
-    await deleteItem(projectItem.path)
-    await window.api.deleteDirectory(projectPath)
-
-    // Update state immediately for responsive UI
+    // Update all items in state with new paths
     setItems(prev => {
-      const next = new Map(prev)
-      // Remove old items
-      for (const id of itemsToRemove) {
-        next.delete(id)
+      const next = new Map<string, VaultItem>()
+
+      for (const [id, item] of prev) {
+        if (item.path.startsWith(projectPath)) {
+          // Replace old path prefix with new path
+          const newItemPath = item.path.replace(projectPath, newPath)
+
+          if (item.meta.type === 'project') {
+            // Project item: update id (which is the directory path), path, and title
+            next.set(newPath, {
+              ...item,
+              id: newPath,
+              path: newItemPath,
+              title: newName,
+              meta: { ...item.meta, name: newName } as typeof item.meta,
+            })
+          } else {
+            // Task/note: just update path
+            next.set(id, { ...item, path: newItemPath })
+          }
+        } else {
+          next.set(id, item)
+        }
       }
-      // Add updated items
-      for (const item of itemsToAdd) {
-        next.set(item.id, item)
-      }
-      if (vaultPath) rebuildTree(next, vaultPath)
+
+      rebuildTree(next)
       return next
     })
-  }, [findItemByDirPath, getItemsInDirectory, updateItem, deleteItem, vaultPath, rebuildTree])
 
-  const createFolderWithProjects = useCallback(async (folderName: string, projectPaths: string[]): Promise<VaultItem> => {
-    if (!vaultPath) throw new Error('No vault path set')
-
-    // Create the new folder at vault root
-    const folder = await createFolder(folderName)
-
-    // Move each specified project into the new folder
-    const folderDir = path.dirname(folder.path)
-    for (const projectPath of projectPaths) {
-      await moveProject(projectPath, folderDir)
+    // Also update the _project.md file with new title
+    if (projectItem && projectItem.meta.type === 'project') {
+      const newProjectPath = path.join(newPath, '_project.md')
+      await window.api.writeFile(newProjectPath, {
+        ...projectItem,
+        id: newPath,
+        path: newProjectPath,
+        title: newName,
+        meta: { ...projectItem.meta, name: newName } as typeof projectItem.meta,
+      })
     }
 
-    return folder
-  }, [vaultPath, createFolder, moveProject])
+    return newPath
+  }, [rebuildTree, findProjectByDirPath])
 
   const updateSortOrder = useCallback(async (itemPath: string, newOrder: number) => {
-    // Try finding by directory path first (for folders/projects)
-    let item = findItemByDirPath(itemPath)
+    // Try finding by directory path first (for projects)
+    let item = findProjectByDirPath(itemPath)
 
     // If not found, try finding by file path (for tasks/notes)
     if (!item) {
@@ -529,20 +384,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       const next = new Map(prev)
       next.set(updatedItem.id, updatedItem)
-      if (vaultPath) rebuildTree(next, vaultPath)
+      rebuildTree(next)
       return next
     })
 
     // Then persist to disk
     await updateItem(updatedItem)
-  }, [findItemByDirPath, updateItem, vaultPath, rebuildTree, items])
+  }, [findProjectByDirPath, updateItem, vaultPath, rebuildTree, items])
 
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
       setItems(prev => {
         const next = new Map(prev)
         next.set(item.id, item)
-        if (vaultPath) rebuildTree(next, vaultPath)
+        rebuildTree(next)
         return next
       })
     })
@@ -551,7 +406,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setItems(prev => {
         const next = new Map(prev)
         next.set(item.id, item)
-        if (vaultPath) rebuildTree(next, vaultPath)
+        rebuildTree(next)
         return next
       })
     })
@@ -565,7 +420,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             break
           }
         }
-        if (vaultPath) rebuildTree(next, vaultPath)
+        rebuildTree(next)
         return next
       })
     })
@@ -591,18 +446,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         deleteItem,
         duplicateItem,
         convertItem,
-        createFolder,
         createProject,
+        renameProject,
         getItemsByParent,
         getTodayTasks,
         getNext7DaysTasks,
         getInboxItems,
         createSubtask,
         getSubtasks,
-        ungroupFolder,
         deleteProject,
-        moveProject,
-        createFolderWithProjects,
         updateSortOrder,
       }}
     >

@@ -6,20 +6,26 @@ import path from 'path'
 export function parseFile(filePath: string, fileContent: string): VaultItem | null {
   try {
     const { data, content } = matter(fileContent)
-    const meta = data as ItemMeta
     const filename = path.basename(filePath)
 
-    // For folders/projects, use the directory path as ID (guaranteed unique)
+    // Skip legacy folder files (folders have been removed)
+    if (data.type === 'folder') {
+      return null
+    }
+
+    const meta = data as ItemMeta
+
+    // For projects, use the directory path as ID (guaranteed unique)
     // For tasks/notes, use ID from filename or frontmatter
     let id: string
-    if (meta.type === 'folder' || meta.type === 'project') {
+    if (meta.type === 'project') {
       id = path.dirname(filePath)
     } else {
       id = (data.id as string) || extractId(filename) || filename.replace('.md', '')
     }
 
     const titleMatch = content.match(/^#\s+(.+)$/m)
-    const title = titleMatch ? titleMatch[1].trim() : meta.type === 'folder' || meta.type === 'project'
+    const title = titleMatch ? titleMatch[1].trim() : meta.type === 'project'
       ? (meta as { name: string }).name
       : filename.replace(/^[a-z0-9]{4}-/, '').replace('.md', '').replace(/-/g, ' ')
 
