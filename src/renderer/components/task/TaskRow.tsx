@@ -22,6 +22,15 @@ function formatDueDate(due: string): string {
   return format(date, 'MMM d')
 }
 
+function getFirstLine(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const firstBlock = doc.body.querySelector('p, li, h1, h2, h3, h4, h5, h6')
+  if (firstBlock) {
+    return firstBlock.textContent?.trim() || ''
+  }
+  return doc.body.textContent?.trim() || ''
+}
+
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const { deleteItem, duplicateItem, convertItem } = useVault()
@@ -60,8 +69,13 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   }
 
   const handleConvertToNote = async () => {
-    contextMenu.close()
     await convertItem(item, 'note')
+    contextMenu.close()
+  }
+
+  const handleConvertToTask = async () => {
+    await convertItem(item, 'task')
+    contextMenu.close()
   }
 
   return (
@@ -94,8 +108,10 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
       )}
 
       {!isTask && (
-        <span className="w-5 h-5 flex items-center justify-center text-gray-500">
-          📄
+        <span className="w-5 h-5 flex items-center justify-center text-gray-400 dark:text-gray-500">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+          </svg>
         </span>
       )}
 
@@ -112,7 +128,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
         </div>
         {item.content && (
           <p className="text-xs text-gray-500 truncate">
-            {item.content.slice(0, 60)}
+            {getFirstLine(item.content)}
           </p>
         )}
       </div>
@@ -126,8 +142,10 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
     {contextMenu.isOpen && (
       <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
         <ContextMenuItem onClick={handleDuplicate}>Duplicate</ContextMenuItem>
-        {isTask && (
+        {isTask ? (
           <ContextMenuItem onClick={handleConvertToNote}>Convert to Note</ContextMenuItem>
+        ) : (
+          <ContextMenuItem onClick={handleConvertToTask}>Convert to Task</ContextMenuItem>
         )}
         <ContextMenuItem onClick={handleDelete} variant="danger">Delete</ContextMenuItem>
       </ContextMenu>

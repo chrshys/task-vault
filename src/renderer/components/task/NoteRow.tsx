@@ -36,8 +36,8 @@ export function NoteRow({ note, isSelected, onSelect }: NoteRowProps) {
   }
 
   const handleConvertToTask = async () => {
-    contextMenu.close()
     await convertItem(note, 'task')
+    contextMenu.close()
   }
 
   return (

@@ -115,6 +115,8 @@ export async function readFile(filePath: string): Promise<VaultItem | null> {
 
 export async function writeFile(filePath: string, item: VaultItem): Promise<void> {
   const content = serializeFile(item)
+  // Ensure parent directory exists (for move operations)
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
   await fs.writeFile(filePath, content)
 }
 

@@ -1,17 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { TaskRow } from '../task/TaskRow'
-import { NoteRow } from '../task/NoteRow'
 import { EmptyState } from '../ui/EmptyState'
-import type { VaultItem, VaultNote } from '@shared/types'
+import { DueDatePicker } from '../ui/DueDatePicker'
+import type { VaultItem, RepeatConfig } from '@shared/types'
 import path from 'path-browserify'
 
 export function TaskList() {
   const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem } = useVault()
-  const { selectedView, selectedPath, selectedTaskId, setSelectedTaskId } = useUI()
+  const { selectedView, selectedPath } = useUI()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [createType, setCreateType] = useState<'task' | 'note'>('task')
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | null>(null)
+  const [selectedRepeat, setSelectedRepeat] = useState<RepeatConfig | null>(null)
+  const inputWrapperRef = useRef<HTMLDivElement>(null)
 
   const displayItems = useMemo(() => {
     switch (selectedView) {
@@ -68,43 +72,121 @@ export function TaskList() {
     const folder = selectedPath || (vaultPath ? path.join(vaultPath, 'Inbox') : null)
     if (!folder) return
 
-    await createItem(createType, folder, newTaskTitle.trim())
+    await createItem(createType, folder, newTaskTitle.trim(), selectedDueDate, selectedRepeat)
     setNewTaskTitle('')
+    setSelectedDueDate(null)
+    setSelectedRepeat(null)
+    setIsInputFocused(false)
+  }
+
+  const handleInputBlur = (e: React.FocusEvent) => {
+    // Don't collapse if focus moves within the wrapper (e.g., clicking ribbon buttons)
+    if (inputWrapperRef.current?.contains(e.relatedTarget as Node)) return
+    // Don't collapse if there's content
+    if (newTaskTitle.trim()) return
+    setIsInputFocused(false)
   }
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{viewTitle}</h2>
+      <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{viewTitle}</h2>
       </div>
 
-      <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex gap-1 mb-2">
-          <button
-            onClick={() => setCreateType('task')}
-            className={`px-2 py-1 text-xs rounded ${createType === 'task' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
-          >
-            Task
-          </button>
-          <button
-            onClick={() => setCreateType('note')}
-            className={`px-2 py-1 text-xs rounded ${createType === 'note' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
-          >
-            Note
-          </button>
+      <div className="max-w-3xl w-full mx-auto px-4 pb-4">
+        <div
+          ref={inputWrapperRef}
+          className={`rounded-lg border transition-colors ${
+            isInputFocused || newTaskTitle
+              ? 'border-blue-500 bg-gray-100 dark:bg-gray-700/50'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+          }`}
+        >
+          <form onSubmit={handleCreateItem}>
+            <input
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={handleInputBlur}
+              placeholder="What would you like to do?"
+              className="w-full px-3 py-3 bg-transparent rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
+            />
+
+            {/* Control Ribbon - shows when focused OR has content */}
+            {(isInputFocused || newTaskTitle) && (
+              <div className="flex items-center justify-between px-2 py-2 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex items-center gap-1">
+                  {/* Task/Note Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateType(t => {
+                        if (t === 'task') {
+                          setSelectedDueDate(null)
+                          setSelectedRepeat(null)
+                          return 'note'
+                        }
+                        return 'task'
+                      })
+                    }}
+                    className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                    title={createType === 'task' ? 'Switch to Note' : 'Switch to Task'}
+                  >
+                    {createType === 'task' ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Due Date Button - only for tasks */}
+                  {createType === 'task' && (
+                    <div className="relative">
+                      <DueDatePicker
+                        dueDate={selectedDueDate}
+                        repeat={selectedRepeat}
+                        onDateChange={setSelectedDueDate}
+                        onRepeatChange={setSelectedRepeat}
+                      />
+                    </div>
+                  )}
+
+                  {/* More Options */}
+                  <button
+                    type="button"
+                    className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                    title="More options"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="5" cy="12" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="19" cy="12" r="2" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Add Button */}
+                <button
+                  type="submit"
+                  disabled={!newTaskTitle.trim()}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </form>
         </div>
-        <form onSubmit={handleCreateItem}>
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder={`+ Add ${createType}`}
-            className="w-full px-3 py-2 bg-transparent border border-transparent rounded text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-600"
-          />
-        </form>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl w-full mx-auto px-4 pb-4">
         {displayItems.length === 0 ? (
           <EmptyState
             {...(selectedView === 'today' ? {
@@ -126,35 +208,15 @@ export function TaskList() {
             })}
           />
         ) : (
-          <>
-            {displayItems
-              .filter(item => item.meta.type === 'task')
-              .map((item) => (
-                <TaskRow
-                  key={item.id}
-                  item={item}
-                  onToggleComplete={handleToggleComplete}
-                />
-              ))}
-            {displayItems.filter(item => item.meta.type === 'note').length > 0 && (
-              <div className="mt-4">
-                <h3 className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">
-                  Notes
-                </h3>
-                {displayItems
-                  .filter(item => item.meta.type === 'note')
-                  .map((item) => (
-                    <NoteRow
-                      key={item.id}
-                      note={item as VaultNote}
-                      isSelected={selectedTaskId === item.id}
-                      onSelect={() => setSelectedTaskId(item.id)}
-                    />
-                  ))}
-              </div>
-            )}
-          </>
+          displayItems.map((item) => (
+            <TaskRow
+              key={item.id}
+              item={item}
+              onToggleComplete={handleToggleComplete}
+            />
+          ))
         )}
+        </div>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ContextMenuProps {
   x: number
@@ -29,14 +30,16 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 z-50 min-w-[160px]"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -49,6 +52,7 @@ interface ContextMenuItemProps {
 export function ContextMenuItem({ onClick, variant = 'default', children }: ContextMenuItemProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`w-full px-3 py-1.5 text-left text-sm ${
         variant === 'danger'

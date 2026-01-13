@@ -3584,7 +3584,12 @@ function parseFile(filePath, fileContent) {
     const { data, content } = (0, import_gray_matter.default)(fileContent);
     const meta = data;
     const filename = path.basename(filePath);
-    const id = extractId(filename) || filename.replace(".md", "");
+    let id;
+    if (meta.type === "folder" || meta.type === "project") {
+      id = path.dirname(filePath);
+    } else {
+      id = data.id || extractId(filename) || filename.replace(".md", "");
+    }
     const titleMatch = content.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : meta.type === "folder" || meta.type === "project" ? meta.name : filename.replace(/^[a-z0-9]{4}-/, "").replace(".md", "").replace(/-/g, " ");
     const bodyContent = titleMatch ? content.replace(/^#\s+.+\n*/, "").trim() : content.trim();
@@ -3707,31 +3712,36 @@ async function readFile(filePath) {
 }
 async function writeFile(filePath, item) {
   const content = serializeFile(item);
+  await fs.mkdir(path2.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content);
 }
 async function createFile(type, folder, title) {
-  const id = generateId();
   const now = (/* @__PURE__ */ new Date()).toISOString();
   let meta;
   let filename;
+  let id;
   switch (type) {
     case "folder":
       meta = { type: "folder", name: title, sort_order: 0, created: now };
       filename = "_folder.md";
       folder = path2.join(folder, title);
       await fs.mkdir(folder, { recursive: true });
+      id = folder;
       break;
     case "project":
       meta = { type: "project", name: title, sort_order: 0, created: now };
       filename = "_project.md";
       folder = path2.join(folder, title);
       await fs.mkdir(folder, { recursive: true });
+      id = folder;
       break;
     case "task":
+      id = generateId();
       meta = { type: "task", status: "pending", parent: null, repeat: null, created: now, modified: now };
       filename = createFilename(id, title);
       break;
     case "note":
+      id = generateId();
       meta = { type: "note", parent: null, repeat: null, created: now, modified: now };
       filename = createFilename(id, title);
       break;

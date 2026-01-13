@@ -1,11 +1,16 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { ViewType } from '@shared/types'
+import { useWindowSize } from '../hooks/useWindowSize'
+
+const SIDEBAR_COLLAPSE_BREAKPOINT = 1024
 
 interface UIContextValue {
   selectedView: ViewType
   selectedPath: string | null
   selectedTaskId: string | null
   sidebarCollapsed: boolean
+  sidebarManuallyCollapsed: boolean
+  windowWidth: number
   showQuickAdd: boolean
   quickAddType: 'task' | 'note'
   setSelectedView: (view: ViewType, path?: string) => void
@@ -21,9 +26,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [selectedView, setSelectedViewState] = useState<ViewType>('inbox')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarManuallyCollapsed, setSidebarManuallyCollapsed] = useState(false)
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddType, setQuickAddType] = useState<'task' | 'note'>('task')
+
+  const { width: windowWidth } = useWindowSize()
+  const sidebarCollapsed = sidebarManuallyCollapsed || windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT
 
   const setSelectedView = useCallback((view: ViewType, path?: string) => {
     setSelectedViewState(view)
@@ -32,7 +40,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed(prev => !prev)
+    setSidebarManuallyCollapsed(prev => !prev)
   }, [])
 
   const openQuickAdd = useCallback((type: 'task' | 'note') => {
@@ -51,6 +59,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
         selectedPath,
         selectedTaskId,
         sidebarCollapsed,
+        sidebarManuallyCollapsed,
+        windowWidth,
         showQuickAdd,
         quickAddType,
         setSelectedView,

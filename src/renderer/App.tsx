@@ -15,7 +15,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { AppSettings, VaultNote } from '@shared/types'
 
 function MainLayout() {
-  const { selectedTaskId, showQuickAdd, quickAddType, closeQuickAdd } = useUI()
+  const { selectedTaskId, sidebarCollapsed, showQuickAdd, quickAddType, closeQuickAdd } = useUI()
   const { items } = useVault()
   useKeyboardShortcuts()
 
@@ -23,18 +23,26 @@ function MainLayout() {
   const isNote = selectedItem?.meta.type === 'note'
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-white">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
       <TitleBar />
       <div className="flex-1 flex min-h-0">
-        <div className="w-64 border-r border-gray-700 flex-shrink-0">
+        <div
+          className={`${
+            sidebarCollapsed ? 'w-14' : 'w-64'
+          } border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-[width] duration-200`}
+        >
           <Sidebar />
         </div>
-        <div className="flex-1 flex">
-          <div className={`${selectedTaskId ? 'w-1/2' : 'flex-1'} border-r border-gray-700`}>
+        <div className="flex-1 flex min-w-0">
+          <div
+            className={`${
+              selectedTaskId ? 'w-2/5' : 'flex-1'
+            } min-w-[320px] border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
+          >
             <TaskList />
           </div>
           {selectedTaskId && (
-            <div className="w-1/2">
+            <div className="flex-1 min-w-[360px] overflow-hidden">
               {isNote ? (
                 <NoteDetail note={selectedItem as VaultNote} />
               ) : (
@@ -68,7 +76,7 @@ function AppContent() {
 
   if (!initialized || loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-900">
+      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <p className="text-gray-400">Loading...</p>
       </div>
     )

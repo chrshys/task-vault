@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import type { VaultTask, TaskMeta } from '@shared/types'
+import { useState, useRef } from 'react'
+import type { VaultTask, TaskMeta, RepeatConfig } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
+import { DueDatePicker } from '../ui/DueDatePicker'
 
 interface SubtaskListProps {
   parentId: string
@@ -9,12 +10,25 @@ interface SubtaskListProps {
 export function SubtaskList({ parentId }: SubtaskListProps) {
   const { getSubtasks, createSubtask, updateItem } = useVault()
   const [newSubtask, setNewSubtask] = useState('')
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | null>(null)
+  const [selectedRepeat, setSelectedRepeat] = useState<RepeatConfig | null>(null)
+  const inputWrapperRef = useRef<HTMLDivElement>(null)
   const subtasks = getSubtasks(parentId)
 
   const handleAdd = async () => {
     if (!newSubtask.trim()) return
-    await createSubtask(parentId, newSubtask.trim())
+    await createSubtask(parentId, newSubtask.trim(), selectedDueDate, selectedRepeat)
     setNewSubtask('')
+    setSelectedDueDate(null)
+    setSelectedRepeat(null)
+    setIsInputFocused(false)
+  }
+
+  const handleInputBlur = (e: React.FocusEvent) => {
+    if (inputWrapperRef.current?.contains(e.relatedTarget as Node)) return
+    if (newSubtask.trim()) return
+    setIsInputFocused(false)
   }
 
   const handleToggle = async (subtask: VaultTask) => {
@@ -50,21 +64,56 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
         ))}
       </div>
 
-      <div className="flex gap-2 mt-2">
+      <div
+        ref={inputWrapperRef}
+        className={`mt-2 rounded-lg border transition-colors ${
+          isInputFocused || newSubtask
+            ? 'border-blue-500 bg-gray-100 dark:bg-gray-700/50'
+            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+        }`}
+      >
         <input
           type="text"
           value={newSubtask}
           onChange={(e) => setNewSubtask(e.target.value)}
+          onFocus={() => setIsInputFocused(true)}
+          onBlur={handleInputBlur}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           placeholder="Add subtask..."
-          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          className="w-full px-3 py-2 bg-transparent rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
         />
-        <button
-          onClick={handleAdd}
-          className="px-2 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
-        >
-          Add
-        </button>
+
+        {/* Control Ribbon */}
+        {(isInputFocused || newSubtask) && (
+          <div className="flex items-center justify-between px-2 py-2 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center gap-1">
+              <DueDatePicker
+                dueDate={selectedDueDate}
+                repeat={selectedRepeat}
+                onDateChange={setSelectedDueDate}
+                onRepeatChange={setSelectedRepeat}
+              />
+              <button
+                type="button"
+                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                title="More options"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="5" cy="12" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="19" cy="12" r="2" />
+                </svg>
+              </button>
+            </div>
+            <button
+              onClick={handleAdd}
+              disabled={!newSubtask.trim()}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Add
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
