@@ -95,3 +95,9 @@ export interface TreeNode {
   children: TreeNode[]
   count?: number
 }
+
+export interface SectionGroup {
+  name: string
+  isDefault: boolean
+  projects: TreeNode[]
+}

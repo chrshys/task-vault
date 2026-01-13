@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { VaultItem, VaultTask, TreeNode, ItemType, ItemMeta, TaskMeta, NoteMeta, RepeatConfig } from '@shared/types'
+import type { VaultItem, VaultTask, TreeNode, SectionGroup, ItemType, ItemMeta, TaskMeta, NoteMeta, ProjectMeta, RepeatConfig } from '@shared/types'
 import path from 'path-browserify'
 
 interface VaultContextValue {
   items: Map<string, VaultItem>
+  sections: SectionGroup[]
   tree: TreeNode[]
   loading: boolean
   vaultPath: string | null
@@ -29,14 +30,16 @@ interface VaultContextValue {
 
 const VaultContext = createContext<VaultContextValue | null>(null)
 
-function buildTree(items: Map<string, VaultItem>): TreeNode[] {
-  const projects: TreeNode[] = []
+function buildSections(items: Map<string, VaultItem>): SectionGroup[] {
   const projectMap = new Map<string, TreeNode>()
+  const sectionMap = new Map<string, TreeNode[]>()
 
-  // First pass: create project nodes
+  // First pass: create project nodes and group by section
   items.forEach((item) => {
     if (item.meta.type === 'project') {
       const dirPath = path.dirname(item.path)
+      const sectionName = (item.meta as ProjectMeta).section || ''
+
       const node: TreeNode = {
         id: item.id,
         name: item.title,
@@ -46,7 +49,10 @@ function buildTree(items: Map<string, VaultItem>): TreeNode[] {
         count: 0,
       }
       projectMap.set(dirPath, node)
-      projects.push(node)
+
+      const existing = sectionMap.get(sectionName) || []
+      existing.push(node)
+      sectionMap.set(sectionName, existing)
     }
   })
 
@@ -61,19 +67,46 @@ function buildTree(items: Map<string, VaultItem>): TreeNode[] {
     }
   })
 
-  // Sort alphabetically by name
-  return projects.sort((a, b) => a.name.localeCompare(b.name))
+  // Build section groups
+  const sections: SectionGroup[] = []
+
+  // Default "Projects" section first (empty string key)
+  const defaultProjects = sectionMap.get('') || []
+  sections.push({
+    name: 'Projects',
+    isDefault: true,
+    projects: defaultProjects.sort((a, b) => a.name.localeCompare(b.name)),
+  })
+
+  // Custom sections alphabetically
+  const customSections = Array.from(sectionMap.keys())
+    .filter(name => name !== '')
+    .sort((a, b) => a.localeCompare(b))
+
+  for (const name of customSections) {
+    const projects = sectionMap.get(name) || []
+    sections.push({
+      name,
+      isDefault: false,
+      projects: projects.sort((a, b) => a.name.localeCompare(b.name)),
+    })
+  }
+
+  return sections
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Map<string, VaultItem>>(new Map())
-  const [tree, setTree] = useState<TreeNode[]>([])
+  const [sections, setSections] = useState<SectionGroup[]>([])
   const [loading, setLoading] = useState(false)
   const [vaultPath, setVaultPath] = useState<string | null>(null)
 
-  const rebuildTree = useCallback((itemsMap: Map<string, VaultItem>) => {
-    setTree(buildTree(itemsMap))
+  const rebuildSections = useCallback((itemsMap: Map<string, VaultItem>) => {
+    setSections(buildSections(itemsMap))
   }, [])
+
+  // Compute flat tree from sections for backward compatibility
+  const tree = sections.flatMap(s => s.projects)
 
   const loadVault = useCallback(async (folderPath: string) => {
     setLoading(true)
@@ -81,9 +114,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildTree(itemsMap)
+    rebuildSections(itemsMap)
     setLoading(false)
-  }, [rebuildTree])
+  }, [rebuildSections])
 
   const initializeVault = useCallback(async (folderPath: string) => {
     setLoading(true)
@@ -91,9 +124,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildTree(itemsMap)
+    rebuildSections(itemsMap)
     setLoading(false)
-  }, [rebuildTree])
+  }, [rebuildSections])
 
   const createItem = useCallback(async (type: ItemType, folder: string, title: string, dueDate?: Date | null, repeat?: RepeatConfig | null) => {
     let item = await window.api.createFile(type, folder, title)
@@ -119,11 +152,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       const next = new Map(prev)
       next.set(item.id, item)
-      rebuildTree(next)
+      rebuildSections(next)
       return next
     })
     return item
-  }, [vaultPath, rebuildTree])
+  }, [vaultPath, rebuildSections])
 
   const updateItem = useCallback(async (item: VaultItem) => {
     await window.api.writeFile(item.path, item)
@@ -143,13 +176,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       const next = new Map(prev)
       next.set(item.id, updatedItem)
-      rebuildTree(next)
+      rebuildSections(next)
       return next
     })
 
     // Then move the file on disk
     await window.api.moveFile(oldPath, newPath)
-  }, [rebuildTree])
+  }, [rebuildSections])
 
   const deleteItem = useCallback(async (itemPath: string) => {
     await window.api.deleteFile(itemPath)
@@ -323,10 +356,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       for (const id of itemsToRemove) {
         next.delete(id)
       }
-      rebuildTree(next)
+      rebuildSections(next)
       return next
     })
-  }, [findProjectByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildTree])
+  }, [findProjectByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildSections])
 
   const renameProject = useCallback(async (projectPath: string, newName: string): Promise<string> => {
     // Get project item before renaming (we need the current state)
@@ -362,7 +395,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      rebuildTree(next)
+      rebuildSections(next)
       return next
     })
 
@@ -379,7 +412,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     return newPath
-  }, [rebuildTree, findProjectByDirPath])
+  }, [rebuildSections, findProjectByDirPath])
 
   const updateSortOrder = useCallback(async (itemPath: string, newOrder: number) => {
     // Try finding by directory path first (for projects)
@@ -407,20 +440,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       const next = new Map(prev)
       next.set(updatedItem.id, updatedItem)
-      rebuildTree(next)
+      rebuildSections(next)
       return next
     })
 
     // Then persist to disk
     await updateItem(updatedItem)
-  }, [findProjectByDirPath, updateItem, vaultPath, rebuildTree, items])
+  }, [findProjectByDirPath, updateItem, vaultPath, rebuildSections, items])
 
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
       setItems(prev => {
         const next = new Map(prev)
         next.set(item.id, item)
-        rebuildTree(next)
+        rebuildSections(next)
         return next
       })
     })
@@ -429,7 +462,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setItems(prev => {
         const next = new Map(prev)
         next.set(item.id, item)
-        rebuildTree(next)
+        rebuildSections(next)
         return next
       })
     })
@@ -443,7 +476,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             break
           }
         }
-        rebuildTree(next)
+        rebuildSections(next)
         return next
       })
     })
@@ -453,12 +486,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unsubAdded()
       unsubDeleted()
     }
-  }, [vaultPath, rebuildTree])
+  }, [vaultPath, rebuildSections])
 
   return (
     <VaultContext.Provider
       value={{
         items,
+        sections,
         tree,
         loading,
         vaultPath,
