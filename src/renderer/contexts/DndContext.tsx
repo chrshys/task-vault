@@ -177,6 +177,63 @@ export function DndProvider({ children }: DndProviderProps) {
     return true
   }
 
+  const handleProjectMoveToRoot = async (
+    draggedNode: TreeNode,
+    targetNode: TreeNode,
+    dropPosition: 'before' | 'after'
+  ): Promise<boolean> => {
+    if (draggedNode.type !== 'project') return false
+
+    const draggedParent = path.dirname(draggedNode.path)
+    const targetParent = path.dirname(targetNode.path)
+
+    // Target must be at root level
+    if (targetParent !== vaultPath) return false
+
+    const draggedIsInFolder = draggedParent !== vaultPath
+
+    const rootItems = getRootLevelItems(items, vaultPath!)
+    const targetIndex = rootItems.findIndex(s => getItemDirPath(s) === targetNode.path)
+
+    if (draggedIsInFolder) {
+      // Move project out of folder to root, then position it
+      await moveProject(draggedNode.path, vaultPath!)
+
+      const insertIndex = dropPosition === 'before' ? targetIndex : targetIndex + 1
+
+      // Update sort orders after move
+      const updatedRootItems = getRootLevelItems(items, vaultPath!)
+      for (let i = 0; i < updatedRootItems.length; i++) {
+        const itemDirPath = getItemDirPath(updatedRootItems[i])
+        const isMovedItem = path.basename(itemDirPath) === path.basename(draggedNode.path)
+        let newOrder: number
+
+        if (isMovedItem) {
+          newOrder = insertIndex
+        } else if (i >= insertIndex) {
+          newOrder = i + 1
+        } else {
+          newOrder = i
+        }
+        await updateSortOrder(itemDirPath, newOrder)
+      }
+    } else {
+      // Same level reorder (already at root)
+      const oldIndex = rootItems.findIndex(s => getItemDirPath(s) === draggedNode.path)
+      if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
+        let newIndex = dropPosition === 'before' ? targetIndex : targetIndex + 1
+        if (oldIndex < newIndex) newIndex--
+
+        const reordered = arrayMove(rootItems, oldIndex, newIndex)
+        for (let i = 0; i < reordered.length; i++) {
+          await updateSortOrder(getItemDirPath(reordered[i]), i)
+        }
+      }
+    }
+
+    return true
+  }
+
   const handleDragStart = (event: { active: { id: string | number } }) => {
     const item = items.get(String(event.active.id))
     if (item) setActiveItem(item)
@@ -275,66 +332,11 @@ export function DndProvider({ children }: DndProviderProps) {
       const draggedNode = activeData.node as TreeNode
       const targetNode = overData.node as TreeNode
 
-      const draggedParent = path.dirname(draggedNode.path)
-      const targetParent = path.dirname(targetNode.path)
-
       // If we have a position indicator, this is a positional drop (before/after)
       if (currentDropTarget) {
-        const position = currentDropTarget.position
-
         // Project dropped at root level (target is at root)
-        if (draggedNode.type === 'project' && targetParent === vaultPath) {
-          const draggedIsInFolder = draggedParent !== vaultPath
-
-          // Get all root-level items for reordering
-          const rootItems = getRootLevelItems(items, vaultPath!)
-
-          // Find target index
-          const targetIndex = rootItems.findIndex(s => getItemDirPath(s) === targetNode.path)
-
-          if (draggedIsInFolder) {
-            // Move project out of folder to root, then position it
-            await moveProject(draggedNode.path, vaultPath!)
-
-            // Calculate insertion index based on position
-            const insertIndex = position === 'before' ? targetIndex : targetIndex + 1
-
-            // Re-fetch and reorder (the moved item is now at root)
-            const updatedRootItems = getRootLevelItems(items, vaultPath!)
-
-            // Update sort orders
-            for (let i = 0; i < updatedRootItems.length; i++) {
-              const itemDirPath = getItemDirPath(updatedRootItems[i])
-              const isMovedItem = path.basename(itemDirPath) === path.basename(draggedNode.path)
-              let newOrder: number
-
-              if (isMovedItem) {
-                newOrder = insertIndex
-              } else if (i >= insertIndex) {
-                newOrder = i + 1
-              } else {
-                newOrder = i
-              }
-              await updateSortOrder(itemDirPath, newOrder)
-            }
-          } else {
-            // Same level reorder with position awareness
-            const oldIndex = rootItems.findIndex(s => getItemDirPath(s) === draggedNode.path)
-
-            if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
-              // Calculate new index based on position
-              let newIndex = position === 'before' ? targetIndex : targetIndex + 1
-              // Adjust if moving from before to after
-              if (oldIndex < newIndex) newIndex--
-
-              const reordered = arrayMove(rootItems, oldIndex, newIndex)
-              for (let i = 0; i < reordered.length; i++) {
-                await updateSortOrder(getItemDirPath(reordered[i]), i)
-              }
-            }
-          }
-          return
-        }
+        const movedToRoot = await handleProjectMoveToRoot(draggedNode, targetNode, currentDropTarget.position)
+        if (movedToRoot) return
 
         // Project dropped within a folder (reorder within folder)
         const reordered = await handleSidebarReorder(draggedNode, targetNode, currentDropTarget.position)
