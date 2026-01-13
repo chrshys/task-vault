@@ -73,22 +73,22 @@ export function TaskList() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-800">
-      <div className="p-4 border-b border-gray-700">
-        <h2 className="text-lg font-semibold text-white">{viewTitle}</h2>
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{viewTitle}</h2>
       </div>
 
-      <div className="p-2 border-b border-gray-700">
+      <div className="p-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex gap-1 mb-2">
           <button
             onClick={() => setCreateType('task')}
-            className={`px-2 py-1 text-xs rounded ${createType === 'task' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-2 py-1 text-xs rounded ${createType === 'task' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
           >
             Task
           </button>
           <button
             onClick={() => setCreateType('note')}
-            className={`px-2 py-1 text-xs rounded ${createType === 'note' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-2 py-1 text-xs rounded ${createType === 'note' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
           >
             Note
           </button>
@@ -99,7 +99,7 @@ export function TaskList() {
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
             placeholder={`+ Add ${createType}`}
-            className="w-full px-3 py-2 bg-transparent border border-transparent rounded text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-gray-600"
+            className="w-full px-3 py-2 bg-transparent border border-transparent rounded text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-600"
           />
         </form>
       </div>
