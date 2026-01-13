@@ -1,5 +1,7 @@
 import {
   DndContext as DndKitContext,
+  DragMoveEvent,
+  DragStartEvent,
   DragEndEvent,
   DragOverEvent,
   DragOverlay,
@@ -10,7 +12,7 @@ import {
   rectIntersection,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { useState, createContext, useContext, type ReactNode } from 'react'
+import { useRef, useState, createContext, useContext, type ReactNode } from 'react'
 import { useVault } from './VaultContext'
 import type { VaultItem, TaskMeta, TreeNode, FolderMeta, ProjectMeta } from '@shared/types'
 import path from 'path-browserify'
@@ -22,6 +24,7 @@ export interface DropTarget {
 }
 
 interface DropIndicatorContextValue {
+  activeDragId: string | null
   dropTarget: DropTarget | null
   setDropTarget: (target: DropTarget | null) => void
 }
@@ -95,7 +98,9 @@ function getItemDirPath(item: VaultItem): string {
 export function DndProvider({ children }: DndProviderProps) {
   const { items, updateItem, moveProject, updateSortOrder, vaultPath } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  const dragPointerYRef = useRef<{ startY: number; currentY: number } | null>(null)
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -146,12 +151,16 @@ export function DndProvider({ children }: DndProviderProps) {
       }
     } else {
       // For items moved from folder, set sort order after move
+      // Compute the new path at root level (project name stays the same)
+      const projectName = path.basename(draggedNode.path)
+      const newProjectPath = path.join(vaultPath!, projectName)
+
       for (let i = 0; i < rootItems.length; i++) {
         const itemPath = getItemDirPath(rootItems[i])
         const newOrder = i >= insertIndex ? i + 1 : i
         await updateSortOrder(itemPath, newOrder)
       }
-      await updateSortOrder(draggedNode.path, insertIndex)
+      await updateSortOrder(newProjectPath, insertIndex)
     }
 
     return true
@@ -189,6 +198,47 @@ export function DndProvider({ children }: DndProviderProps) {
     return true
   }
 
+  const handleRootReorder = async (
+    draggedNode: TreeNode,
+    targetNode: TreeNode,
+    dropPosition: 'before' | 'after'
+  ): Promise<boolean> => {
+    if (!vaultPath) return false
+    if ((draggedNode.type !== 'folder' && draggedNode.type !== 'project') ||
+        (targetNode.type !== 'folder' && targetNode.type !== 'project')) {
+      return false
+    }
+
+    const draggedParent = path.dirname(draggedNode.path)
+    const targetParent = path.dirname(targetNode.path)
+    if (draggedParent !== vaultPath || targetParent !== vaultPath) return false
+
+    const rootItems = getRootLevelItems(items, vaultPath)
+    const oldIndex = rootItems.findIndex(s => getItemDirPath(s) === draggedNode.path)
+    const targetIndex = rootItems.findIndex(s => getItemDirPath(s) === targetNode.path)
+    if (oldIndex === -1 || targetIndex === -1 || oldIndex === targetIndex) return false
+
+    let newIndex = dropPosition === 'before' ? targetIndex : targetIndex + 1
+    if (oldIndex < newIndex) newIndex--
+
+    const reordered = arrayMove(rootItems, oldIndex, newIndex)
+    for (let i = 0; i < reordered.length; i++) {
+      await updateSortOrder(getItemDirPath(reordered[i]), i)
+    }
+
+    if (import.meta.env.DEV) {
+      console.debug('[dnd] root reorder', {
+        dragged: draggedNode.path,
+        target: targetNode.path,
+        dropPosition,
+        oldIndex,
+        newIndex,
+      })
+    }
+
+    return true
+  }
+
   const handleProjectMoveToRoot = async (
     draggedNode: TreeNode,
     targetNode: TreeNode,
@@ -213,22 +263,18 @@ export function DndProvider({ children }: DndProviderProps) {
 
       const insertIndex = dropPosition === 'before' ? targetIndex : targetIndex + 1
 
-      // Update sort orders after move
-      const updatedRootItems = getRootLevelItems(items, vaultPath!)
-      for (let i = 0; i < updatedRootItems.length; i++) {
-        const itemDirPath = getItemDirPath(updatedRootItems[i])
-        const isMovedItem = path.basename(itemDirPath) === path.basename(draggedNode.path)
-        let newOrder: number
+      // Compute the new path at root level (project name stays the same)
+      const projectName = path.basename(draggedNode.path)
+      const newProjectPath = path.join(vaultPath!, projectName)
 
-        if (isMovedItem) {
-          newOrder = insertIndex
-        } else if (i >= insertIndex) {
-          newOrder = i + 1
-        } else {
-          newOrder = i
-        }
-        await updateSortOrder(itemDirPath, newOrder)
+      // Update sort orders for existing root items (shift items at/after insert position)
+      for (let i = 0; i < rootItems.length; i++) {
+        const itemPath = getItemDirPath(rootItems[i])
+        const newOrder = i >= insertIndex ? i + 1 : i
+        await updateSortOrder(itemPath, newOrder)
       }
+      // Set sort order for the moved project
+      await updateSortOrder(newProjectPath, insertIndex)
     } else {
       // Same level reorder (already at root)
       const oldIndex = rootItems.findIndex(s => getItemDirPath(s) === draggedNode.path)
@@ -250,10 +296,28 @@ export function DndProvider({ children }: DndProviderProps) {
   // Main Event Handlers
   // --------------------------------------------------------------------------
 
-  const handleDragStart = (event: { active: { id: string | number } }) => {
+  const handleDragStart = (event: DragStartEvent) => {
     const item = items.get(String(event.active.id))
     if (item) setActiveItem(item)
+    setActiveDragId(String(event.active.id))
     setDropTarget(null)
+
+    const e = event.activatorEvent
+    if (e instanceof MouseEvent) {
+      dragPointerYRef.current = { startY: e.clientY, currentY: e.clientY }
+    } else if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent) {
+      const y = e.touches[0]?.clientY
+      if (typeof y === 'number') dragPointerYRef.current = { startY: y, currentY: y }
+      else dragPointerYRef.current = null
+    } else {
+      dragPointerYRef.current = null
+    }
+  }
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const p = dragPointerYRef.current
+    if (!p) return
+    p.currentY = p.startY + event.delta.y
   }
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -291,14 +355,34 @@ export function DndProvider({ children }: DndProviderProps) {
 
     const overNode = overData.node as TreeNode
 
-    // For folders, we want "drop into" behavior (no position indicator)
-    // unless we're at the same level trying to reorder folders
+    // Calculate position based on dragged element center relative to target center
     if (activeData?.type === 'sidebar-item') {
       const activeNode = activeData.node as TreeNode
 
-      // If dropping on a folder and it's not a folder-on-folder reorder, no indicator
-      if (overNode.type === 'folder' && activeNode.type !== 'folder') {
-        setDropTarget(null)
+      // For project-over-folder: support both "drop into" (center) and "drop before/after" (edges)
+      // so projects can be placed above/below folders without always nesting.
+      if (overNode.type === 'folder' && activeNode.type === 'project') {
+        const overRect = over.rect
+        const activeRect = active.rect.current.translated
+
+        if (!activeRect) {
+          setDropTarget(null)
+          return
+        }
+
+        const pointerY = dragPointerYRef.current?.currentY ?? (activeRect.top + activeRect.height / 2)
+        const yWithin = pointerY - overRect.top
+        const ratio = overRect.height > 0 ? yWithin / overRect.height : 0.5
+
+        // Edge zones show before/after indicators; center zone means "drop into folder"
+        // Make the center zone generous so "drop into folder" is easy to hit.
+        if (ratio <= 0.15) {
+          setDropTarget({ id: String(over.id), position: 'before' })
+        } else if (ratio >= 0.85) {
+          setDropTarget({ id: String(over.id), position: 'after' })
+        } else {
+          setDropTarget(null)
+        }
         return
       }
     }
@@ -326,103 +410,166 @@ export function DndProvider({ children }: DndProviderProps) {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     const currentDropTarget = dropTarget
-    setActiveItem(null)
     setDropTarget(null)
 
-    if (!over || active.id === over.id) return
+    try {
+      if (!over || active.id === over.id) return
 
-    const activeData = active.data.current
-    const overData = over.data.current
+      const activeData = active.data.current
+      const overData = over.data.current
 
-    // Handle root drop zone drops (top/bottom of list)
-    if (overData?.type === 'root-drop-zone' && activeData?.type === 'sidebar-item') {
-      await handleRootDropZoneDrop(
-        activeData as { type: string; node: TreeNode },
-        overData as { type: string; position: 'top' | 'bottom' }
-      )
-      return
-    }
-
-    // Handle sidebar item to sidebar item drags
-    if (activeData?.type === 'sidebar-item' && overData?.type === 'sidebar-item') {
-      const draggedNode = activeData.node as TreeNode
-      const targetNode = overData.node as TreeNode
-
-      // Try reordering first (same parent, same type, has position indicator)
-      if (currentDropTarget) {
-        const reordered = await handleSidebarReorder(
-          draggedNode,
-          targetNode,
-          currentDropTarget.position
+      // Handle root drop zone drops (top/bottom of list)
+      if (overData?.type === 'root-drop-zone' && activeData?.type === 'sidebar-item') {
+        await handleRootDropZoneDrop(
+          activeData as { type: string; node: TreeNode },
+          overData as { type: string; position: 'top' | 'bottom' }
         )
-        if (reordered) return
-
-        // Try moving project to root level
-        const movedToRoot = await handleProjectMoveToRoot(
-          draggedNode,
-          targetNode,
-          currentDropTarget.position
-        )
-        if (movedToRoot) return
-      }
-
-      // No position indicator - check for folder drop (move into folder)
-      if (draggedNode.type === 'project' && targetNode.type === 'folder') {
-        await moveProject(draggedNode.path, targetNode.path)
         return
       }
 
-      // Folder on folder or other invalid combinations - do nothing
-      return
-    }
+      // Handle sidebar item to sidebar item drags
+      if (activeData?.type === 'sidebar-item' && overData?.type === 'sidebar-item') {
+        const draggedNode = activeData.node as TreeNode
+        const targetNode = overData.node as TreeNode
+        const dropPosition =
+          currentDropTarget?.id === String(over.id) ? currentDropTarget.position : null
 
-    // Handle task/note drags to projects
-    const draggedItem = items.get(String(active.id))
-    const targetPath = String(over.id)
+        // Reorder at root level (folders + projects can be interleaved)
+        if (dropPosition) {
+          const rootReordered = await handleRootReorder(
+            draggedNode,
+            targetNode,
+            dropPosition
+          )
+          if (rootReordered) return
 
-    if (!draggedItem || draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') {
-      return
-    }
+          // Try same-parent, same-type reorder (e.g. within a folder)
+          const reordered = await handleSidebarReorder(
+            draggedNode,
+            targetNode,
+            dropPosition
+          )
+          if (reordered) return
 
-    // Check if target is a folder - tasks can only go in projects
-    const targetItem = Array.from(items.values()).find(i =>
-      (i.meta.type === 'folder' || i.meta.type === 'project') &&
-      path.dirname(i.path) === targetPath
-    )
-    if (targetItem?.meta.type === 'folder') {
-      return
-    }
+          // Try moving project to root level
+          const movedToRoot = await handleProjectMoveToRoot(
+            draggedNode,
+            targetNode,
+            dropPosition
+          )
+          if (movedToRoot) return
+        }
 
-    // Move file to new project
-    const filename = path.basename(draggedItem.path)
-    const newPath = path.join(targetPath, filename)
+        // No position indicator - check for folder drop (move into folder)
+        if (draggedNode.type === 'project' && targetNode.type === 'folder') {
+          if (import.meta.env.DEV) {
+            console.debug('[dnd] move project into folder', {
+              project: draggedNode.path,
+              folder: targetNode.path,
+            })
+          }
+          await moveProject(draggedNode.path, targetNode.path)
+          return
+        }
 
-    if (newPath !== draggedItem.path) {
-      await updateItem({
-        ...draggedItem,
-        path: newPath,
-        meta: { ...draggedItem.meta, modified: new Date().toISOString() } as TaskMeta,
-      })
+        // Folder on folder or other invalid combinations - do nothing
+        return
+      }
+
+      // Handle task reordering within the same list (sortable task list)
+      const activeId = String(active.id)
+      const overId = String(over.id)
+      const activeItem = items.get(activeId)
+      const overItem = items.get(overId)
+
+      if (activeItem && overItem &&
+          (activeItem.meta.type === 'task' || activeItem.meta.type === 'note') &&
+          (overItem.meta.type === 'task' || overItem.meta.type === 'note')) {
+        // Get all sibling items in the same directory
+        const parentPath = path.dirname(activeItem.path)
+        if (parentPath === path.dirname(overItem.path)) {
+          const siblings = Array.from(items.values())
+            .filter(i => {
+              if (i.meta.type === 'folder' || i.meta.type === 'project') return false
+              // Filter out subtasks - only sort top-level items
+              if (i.meta.type === 'task' && (i.meta as TaskMeta).parent) return false
+              return path.dirname(i.path) === parentPath
+            })
+            .sort((a, b) => {
+              const aOrder = a.meta.sort_order ?? Infinity
+              const bOrder = b.meta.sort_order ?? Infinity
+              return aOrder - bOrder
+            })
+
+          const oldIndex = siblings.findIndex(i => i.id === activeId)
+          const newIndex = siblings.findIndex(i => i.id === overId)
+
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            const reordered = arrayMove(siblings, oldIndex, newIndex)
+            for (let i = 0; i < reordered.length; i++) {
+              await updateSortOrder(reordered[i].path, i)
+            }
+            return
+          }
+        }
+      }
+
+      // Handle task/note drags to projects
+      const draggedItem = items.get(String(active.id))
+      const targetPath = String(over.id)
+
+      if (!draggedItem || draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') {
+        return
+      }
+
+      // Check if target is a folder - tasks can only go in projects
+      const targetItem = Array.from(items.values()).find(i =>
+        (i.meta.type === 'folder' || i.meta.type === 'project') &&
+        path.dirname(i.path) === targetPath
+      )
+      if (targetItem?.meta.type === 'folder') {
+        return
+      }
+
+      // Move file to new project
+      const filename = path.basename(draggedItem.path)
+      const newPath = path.join(targetPath, filename)
+
+      if (newPath !== draggedItem.path) {
+        await updateItem({
+          ...draggedItem,
+          path: newPath,
+          meta: { ...draggedItem.meta, modified: new Date().toISOString() } as TaskMeta,
+        })
+      }
+    } finally {
+      // Keep the drag overlay/ghost until async work completes to avoid a "snap back" illusion.
+      setActiveItem(null)
+      setActiveDragId(null)
+      dragPointerYRef.current = null
     }
   }
 
   const handleDragCancel = () => {
     setActiveItem(null)
+    setActiveDragId(null)
     setDropTarget(null)
+    dragPointerYRef.current = null
   }
 
   return (
-    <DropIndicatorContext.Provider value={{ dropTarget, setDropTarget }}>
+    <DropIndicatorContext.Provider value={{ activeDragId, dropTarget, setDropTarget }}>
       <DndKitContext
         sensors={sensors}
         collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
         {children}
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeItem && (
           <div className="px-3 py-2 bg-gray-700 rounded shadow-lg text-sm text-gray-200">
             {activeItem.title}

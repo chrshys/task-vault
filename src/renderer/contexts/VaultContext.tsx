@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { VaultItem, VaultTask, TreeNode, ItemType, TaskMeta, NoteMeta, FolderMeta, ProjectMeta, RepeatConfig } from '@shared/types'
+import type { VaultItem, VaultTask, TreeNode, ItemType, ItemMeta, TaskMeta, NoteMeta, FolderMeta, ProjectMeta, RepeatConfig } from '@shared/types'
 import path from 'path-browserify'
 
 interface VaultContextValue {
@@ -504,24 +504,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [vaultPath, createFolder, moveProject])
 
   const updateSortOrder = useCallback(async (itemPath: string, newOrder: number) => {
-    // Find the item by directory path
-    const item = findItemByDirPath(itemPath)
+    // Try finding by directory path first (for folders/projects)
+    let item = findItemByDirPath(itemPath)
+
+    // If not found, try finding by file path (for tasks/notes)
+    if (!item) {
+      item = Array.from(items.values()).find(i => i.path === itemPath)
+    }
+
     if (!item) {
       throw new Error('Item not found')
     }
 
-    if (item.meta.type !== 'folder' && item.meta.type !== 'project') {
-      throw new Error('Can only update sort_order on folders and projects')
-    }
-
-    const meta = item.meta as FolderMeta | ProjectMeta
     const updatedItem: VaultItem = {
       ...item,
       meta: {
-        ...meta,
+        ...item.meta,
         sort_order: newOrder,
         modified: new Date().toISOString(),
-      },
+      } as ItemMeta,
     }
 
     // Update local state immediately for responsive UI
@@ -534,7 +535,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     // Then persist to disk
     await updateItem(updatedItem)
-  }, [findItemByDirPath, updateItem, vaultPath, rebuildTree])
+  }, [findItemByDirPath, updateItem, vaultPath, rebuildTree, items])
 
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {

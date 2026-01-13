@@ -1,4 +1,6 @@
 import { useMemo, useState, useRef } from 'react'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { TaskRow } from '../task/TaskRow'
@@ -6,6 +8,22 @@ import { EmptyState } from '../ui/EmptyState'
 import { DueDatePicker } from '../ui/DueDatePicker'
 import type { VaultItem, RepeatConfig, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
+
+function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggleComplete: (item: VaultItem) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <TaskRow item={item} onToggleComplete={onToggleComplete} />
+    </div>
+  )
+}
 
 export function TaskList() {
   const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem } = useVault()
@@ -210,13 +228,15 @@ export function TaskList() {
             })}
           />
         ) : (
-          displayItems.map((item) => (
-            <TaskRow
-              key={item.id}
-              item={item}
-              onToggleComplete={handleToggleComplete}
-            />
-          ))
+          <SortableContext items={displayItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+            {displayItems.map((item) => (
+              <SortableTaskRow
+                key={item.id}
+                item={item}
+                onToggleComplete={handleToggleComplete}
+              />
+            ))}
+          </SortableContext>
         )}
         </div>
       </div>

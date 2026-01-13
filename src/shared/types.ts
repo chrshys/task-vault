@@ -43,6 +43,7 @@ export interface TaskMeta extends BaseMeta {
   parent?: string | null
   completed_at?: string
   previous_instance?: string
+  sort_order?: number
 }
 
 export interface NoteMeta extends BaseMeta {
@@ -50,6 +51,7 @@ export interface NoteMeta extends BaseMeta {
   reminder?: string
   repeat?: RepeatConfig | null
   parent?: string | null
+  sort_order?: number
 }
 
 export type ItemMeta = FolderMeta | ProjectMeta | TaskMeta | NoteMeta
