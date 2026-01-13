@@ -5,6 +5,8 @@ import { useUI } from '../../contexts/UIContext'
 interface TaskRowProps {
   item: VaultItem
   onToggleComplete: (item: VaultItem) => void
+  subtaskCount?: number
+  completedSubtaskCount?: number
 }
 
 function formatDueDate(due: string): string {
@@ -14,7 +16,7 @@ function formatDueDate(due: string): string {
   return format(date, 'MMM d')
 }
 
-export function TaskRow({ item, onToggleComplete }: TaskRowProps) {
+export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const isSelected = selectedTaskId === item.id
   const isTask = item.meta.type === 'task'
@@ -53,9 +55,16 @@ export function TaskRow({ item, onToggleComplete }: TaskRowProps) {
       )}
 
       <div className="flex-1 min-w-0">
-        <p className={`text-sm truncate ${isCompleted ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-          {item.title}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className={`text-sm truncate ${isCompleted ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+            {item.title}
+          </p>
+          {subtaskCount > 0 && (
+            <span className="text-xs text-gray-400">
+              {completedSubtaskCount}/{subtaskCount}
+            </span>
+          )}
+        </div>
         {item.content && (
           <p className="text-xs text-gray-500 truncate">
             {item.content.slice(0, 60)}
