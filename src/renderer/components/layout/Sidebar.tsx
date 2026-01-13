@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -44,12 +45,30 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
 }
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems } = useVault()
+  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder } = useVault()
   const { selectedView, setSelectedView } = useUI()
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
 
   const todayCount = getTodayTasks().length
   const next7Count = getNext7DaysTasks().length
   const inboxCount = getInboxItems().length
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return
+    await createFolder(newFolderName.trim())
+    setNewFolderName('')
+    setShowNewFolder(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCreateFolder()
+    } else if (e.key === 'Escape') {
+      setNewFolderName('')
+      setShowNewFolder(false)
+    }
+  }
 
   return (
     <div className="h-full flex flex-col bg-gray-900">
@@ -115,9 +134,33 @@ export function Sidebar() {
         <div className="flex justify-center">
           <ThemeToggle />
         </div>
-        <button className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-300 text-left">
-          + New Folder
-        </button>
+        {showNewFolder ? (
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Folder name..."
+              className="flex-1 px-2 py-1 text-sm bg-gray-800 border border-gray-700 rounded text-gray-100 placeholder-gray-500 outline-none focus:border-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim()}
+              className="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewFolder(true)}
+            className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-300 text-left"
+          >
+            + New Folder
+          </button>
+        )}
       </div>
     </div>
   )
