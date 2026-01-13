@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { DateTimePicker } from '../ui/DateTimePicker'
+import { SubtaskList } from '../task/SubtaskList'
 import type { VaultItem, TaskMeta } from '@shared/types'
 
 export function TaskDetail() {
@@ -103,6 +104,8 @@ export function TaskDetail() {
           className="w-full h-64 bg-transparent border border-gray-700 rounded p-3 text-sm text-gray-200 resize-none outline-none focus:border-gray-500"
           placeholder="Add description..."
         />
+
+        {isTask && <SubtaskList parentId={localItem.id} />}
       </div>
     </div>
   )
