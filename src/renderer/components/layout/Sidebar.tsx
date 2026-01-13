@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { useDroppable } from '@dnd-kit/core'
+import { useDroppable, useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, FolderPlus, Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -19,9 +20,45 @@ function TreeItem({
   onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
 }) {
   const { selectedView, selectedPath, setSelectedView } = useUI()
-  const { setNodeRef, isOver } = useDroppable({
-    id: node.path,
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `drop-${node.path}`,
+    data: { type: 'sidebar-item', node },
   })
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDraggableRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `drag-${node.path}`,
+    data: { type: 'sidebar-item', node },
+  })
+
+  // Combine refs from useDroppable and useDraggable
+  const setNodeRef = (el: HTMLButtonElement | null) => {
+    setDroppableRef(el)
+    setDraggableRef(el)
+  }
+
+  // Transform style for dragging
+  const dragStyle = transform
+    ? {
+        transform: CSS.Transform.toString(transform),
+        opacity: isDragging ? 0.5 : 1,
+      }
+    : undefined
+
+  // Visual feedback for drop targets
+  const getDropHighlight = () => {
+    if (!isOver) return ''
+    // Project being dropped on project = purple (grouping)
+    if (node.type === 'project') return 'bg-purple-600/20 ring-1 ring-purple-500'
+    // Being dropped on folder = blue (move into)
+    if (node.type === 'folder') return 'bg-blue-600/20 ring-1 ring-blue-500'
+    return ''
+  }
 
   const handleClick = () => {
     setSelectedView(node.type as 'folder' | 'project', node.path)
@@ -29,6 +66,7 @@ function TreeItem({
 
   const Icon = node.type === 'folder' ? Folder : ListTodo
   const isSelected = selectedView === node.type && selectedPath === node.path
+  const dropHighlight = getDropHighlight()
 
   return (
     <div>
@@ -37,13 +75,15 @@ function TreeItem({
         onClick={handleClick}
         onContextMenu={(e) => onContextMenu?.(e, node)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-          isOver
-            ? 'bg-blue-600/20 ring-1 ring-blue-500'
+          dropHighlight
+            ? dropHighlight
             : isSelected
               ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
         }`}
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
+        style={{ ...dragStyle, paddingLeft: `${12 + depth * 16}px` }}
+        {...attributes}
+        {...listeners}
       >
         <span className="flex items-center gap-2.5">
           <Icon size={16} className={isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
