@@ -111,15 +111,25 @@ export function DndProvider({ children }: DndProviderProps) {
 
     // Existing task/note drag handling
     const draggedItem = items.get(String(active.id))
-    const targetFolder = String(over.id)
+    const targetPath = String(over.id)
 
     if (!draggedItem || draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') {
       return
     }
 
-    // Move file to new folder
+    // Check if target is a folder (not a project) - tasks can only go in projects
+    const targetItem = Array.from(items.values()).find(i =>
+      (i.meta.type === 'folder' || i.meta.type === 'project') &&
+      path.dirname(i.path) === targetPath
+    )
+    if (targetItem?.meta.type === 'folder') {
+      // Don't allow dropping tasks directly into folders
+      return
+    }
+
+    // Move file to new project
     const filename = path.basename(draggedItem.path)
-    const newPath = path.join(targetFolder, filename)
+    const newPath = path.join(targetPath, filename)
 
     if (newPath !== draggedItem.path) {
       await updateItem({
