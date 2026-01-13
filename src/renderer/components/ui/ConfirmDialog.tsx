@@ -1,10 +1,13 @@
+import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+
 interface ConfirmDialogProps {
   open: boolean
   title: string
   message: string
   confirmLabel?: string
   cancelLabel?: string
-  variant?: 'danger' | 'warning' | 'default'
+  variant?: 'default' | 'danger' | 'warning'
   onConfirm: () => void
   onCancel: () => void
 }
@@ -19,34 +22,68 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open, onCancel])
+
   if (!open) return null
 
-  const confirmClass = {
-    danger: 'bg-red-600 hover:bg-red-700',
-    warning: 'bg-yellow-600 hover:bg-yellow-700',
-    default: 'bg-blue-600 hover:bg-blue-700',
-  }[variant]
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onCancel}
+      />
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{message}</p>
-        <div className="flex justify-end gap-2">
+      {/* Dialog */}
+      <div
+        ref={dialogRef}
+        className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-6 min-w-[320px] max-w-md"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {title}
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          {message}
+        </p>
+
+        <div className="flex justify-end gap-3">
           <button
+            type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             {cancelLabel}
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            className={`px-3 py-1.5 text-sm text-white rounded ${confirmClass}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              variant === 'danger'
+                ? 'text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
+                : variant === 'warning'
+                  ? 'text-white bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-600'
+                  : 'text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+            }`}
           >
             {confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
