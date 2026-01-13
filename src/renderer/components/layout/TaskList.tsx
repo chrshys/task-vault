@@ -11,6 +11,7 @@ export function TaskList() {
   const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem } = useVault()
   const { selectedView, selectedPath, selectedTaskId, setSelectedTaskId } = useUI()
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [createType, setCreateType] = useState<'task' | 'note'>('task')
 
   const displayItems = useMemo(() => {
     switch (selectedView) {
@@ -60,14 +61,14 @@ export function TaskList() {
     await updateItem(updatedItem)
   }
 
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTaskTitle.trim()) return
 
     const folder = selectedPath || (vaultPath ? path.join(vaultPath, 'Inbox') : null)
     if (!folder) return
 
-    await createItem('task', folder, newTaskTitle.trim())
+    await createItem(createType, folder, newTaskTitle.trim())
     setNewTaskTitle('')
   }
 
@@ -78,12 +79,26 @@ export function TaskList() {
       </div>
 
       <div className="p-2 border-b border-gray-700">
-        <form onSubmit={handleCreateTask}>
+        <div className="flex gap-1 mb-2">
+          <button
+            onClick={() => setCreateType('task')}
+            className={`px-2 py-1 text-xs rounded ${createType === 'task' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Task
+          </button>
+          <button
+            onClick={() => setCreateType('note')}
+            className={`px-2 py-1 text-xs rounded ${createType === 'note' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Note
+          </button>
+        </div>
+        <form onSubmit={handleCreateItem}>
           <input
             type="text"
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="+ Add task"
+            placeholder={`+ Add ${createType}`}
             className="w-full px-3 py-2 bg-transparent border border-transparent rounded text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-gray-600"
           />
         </form>
