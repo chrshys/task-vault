@@ -539,7 +539,7 @@ export function DndProvider({ children }: DndProviderProps) {
         await updateItem({
           ...draggedItem,
           path: newPath,
-          meta: { ...draggedItem.meta, modified: new Date().toISOString() } as TaskMeta,
+          meta: { ...draggedItem.meta, modified: new Date().toISOString() } as typeof draggedItem.meta,
         })
       }
     } finally {

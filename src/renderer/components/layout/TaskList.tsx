@@ -36,22 +36,27 @@ export function TaskList() {
   const inputWrapperRef = useRef<HTMLDivElement>(null)
 
   const displayItems = useMemo(() => {
+    const sortBySortOrder = (a: VaultItem, b: VaultItem) =>
+      (a.meta.sort_order ?? Infinity) - (b.meta.sort_order ?? Infinity)
+
     switch (selectedView) {
       case 'today':
-        return getTodayTasks()
+        return getTodayTasks().sort(sortBySortOrder)
       case 'next7':
-        return getNext7DaysTasks()
+        return getNext7DaysTasks().sort(sortBySortOrder)
       case 'inbox':
-        return getInboxItems()
+        return getInboxItems().sort(sortBySortOrder)
       case 'folder':
       case 'project':
         if (!selectedPath) return []
-        return Array.from(items.values()).filter(item => {
-          if (item.meta.type === 'folder' || item.meta.type === 'project') return false
-          // Filter out subtasks - only show top-level tasks
-          if (item.meta.type === 'task' && (item.meta as TaskMeta).parent) return false
-          return path.dirname(item.path) === selectedPath
-        })
+        return Array.from(items.values())
+          .filter(item => {
+            if (item.meta.type === 'folder' || item.meta.type === 'project') return false
+            // Filter out subtasks - only show top-level tasks
+            if (item.meta.type === 'task' && (item.meta as TaskMeta).parent) return false
+            return path.dirname(item.path) === selectedPath
+          })
+          .sort(sortBySortOrder)
       default:
         return []
     }
