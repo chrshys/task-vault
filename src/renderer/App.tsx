@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
+import { DndProvider } from './contexts/DndContext'
 import { Welcome } from './components/Welcome'
 import { TitleBar } from './components/layout/TitleBar'
 import { Sidebar } from './components/layout/Sidebar'
@@ -69,7 +70,11 @@ function AppContent() {
     return <Welcome />
   }
 
-  return <MainLayout />
+  return (
+    <DndProvider>
+      <MainLayout />
+    </DndProvider>
+  )
 }
 
 export default function App() {
