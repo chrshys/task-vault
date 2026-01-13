@@ -11,7 +11,9 @@ import type { ItemChangedReason } from 'dnd-kit-sortable-tree/dist/types'
 type SidebarItemData = { node: TreeNode }
 
 // Full props type including children
-type SidebarTreeItemProps = PropsWithChildren<TreeItemComponentProps<SidebarItemData>>
+type SidebarTreeItemProps = PropsWithChildren<TreeItemComponentProps<SidebarItemData>> & {
+  onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
+}
 
 // Custom tree item component
 const SidebarTreeItemComponent = memo(function SidebarTreeItemComponent({
@@ -20,6 +22,7 @@ const SidebarTreeItemComponent = memo(function SidebarTreeItemComponent({
   onCollapse,
   collapsed,
   children,
+  onContextMenu,
   ...props
 }: SidebarTreeItemProps) {
   const { selectedView, selectedPath, setSelectedView } = useUI()
@@ -40,6 +43,7 @@ const SidebarTreeItemComponent = memo(function SidebarTreeItemComponent({
     <FolderTreeItemWrapper {...props} item={item} depth={depth} onCollapse={onCollapse} collapsed={collapsed}>
       <button
         onClick={handleClick}
+        onContextMenu={(e) => onContextMenu?.(e, node)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
           isSelected
             ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
@@ -80,9 +84,10 @@ const SidebarTreeItemComponent = memo(function SidebarTreeItemComponent({
 
 interface SidebarTreeProps {
   onItemsChange: (items: SidebarTreeItem[], reason: ItemChangedReason<SidebarItemData>) => void
+  onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
 }
 
-export function SidebarTree({ onItemsChange }: SidebarTreeProps) {
+export function SidebarTree({ onItemsChange, onContextMenu }: SidebarTreeProps) {
   const { tree } = useVault()
   const items = useMemo(() => toSortableTree(tree), [tree])
 
@@ -90,7 +95,9 @@ export function SidebarTree({ onItemsChange }: SidebarTreeProps) {
     <SortableTree
       items={items}
       onItemsChanged={onItemsChange}
-      TreeItemComponent={SidebarTreeItemComponent}
+      TreeItemComponent={(props) => (
+        <SidebarTreeItemComponent {...props} onContextMenu={onContextMenu} />
+      )}
       indentationWidth={16}
     />
   )

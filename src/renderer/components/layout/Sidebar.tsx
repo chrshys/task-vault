@@ -1,170 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { useDroppable } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, FolderPlus, Settings, Sun, Moon, Monitor, ChevronRight } from 'lucide-react'
+import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, FolderPlus, Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useTheme } from '../../contexts/ThemeContext'
-import { useDropIndicator } from '../../contexts/DndContext'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { SidebarTree } from './SidebarTree'
+import type { SidebarTreeItem } from '../../utils/sidebarTreeAdapter'
 import type { TreeNode } from '@shared/types'
-
-// Drop indicator line component
-function DropIndicatorLine({ position }: { position: 'before' | 'after' }) {
-  return (
-    <div
-      className={`absolute left-3 right-3 h-0.5 bg-blue-500 pointer-events-none z-10 ${
-        position === 'before' ? '-top-px' : '-bottom-px'
-      }`}
-    >
-      <div className="absolute -left-1 -top-[3px] w-2 h-2 bg-blue-500 rounded-full" />
-    </div>
-  )
-}
-
-// Drop zone for root level (top/bottom of list)
-function RootDropZone({ id, position }: { id: string; position: 'top' | 'bottom' }) {
-  const { dropTarget } = useDropIndicator()
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-    data: { type: 'root-drop-zone', position },
-  })
-
-  const showIndicator = dropTarget?.id === id || isOver
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`relative ${position === 'top' ? 'h-2 mb-0.5' : 'h-8 mt-1'}`}
-    >
-      {showIndicator && (
-        <div className={`absolute left-3 right-3 h-0.5 bg-blue-500 ${position === 'top' ? 'top-1/2 -translate-y-1/2' : 'top-0'}`}>
-          <div className="absolute -left-1 -top-[3px] w-2 h-2 bg-blue-500 rounded-full" />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TreeItem({
-  node,
-  depth = 0,
-  onContextMenu,
-  collapsedFolders,
-  onToggleCollapse
-}: {
-  node: TreeNode
-  depth?: number
-  onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
-  collapsedFolders: Set<string>
-  onToggleCollapse: (path: string) => void
-}) {
-  const { selectedView, selectedPath, setSelectedView } = useUI()
-  const { dropTarget } = useDropIndicator()
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    isDragging,
-    isOver,
-  } = useSortable({
-    id: node.path,  // Use plain path as ID for sortable
-    data: { type: 'sidebar-item', node },
-  })
-
-  // Style for dragging - no transform, just opacity
-  const style = {
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  // Check if this item is the drop target
-  const isDropTarget = dropTarget?.id === node.path
-  const dropPosition = isDropTarget ? dropTarget.position : null
-
-  // Visual feedback for drop targets - only for folders (drop into)
-  const getDropHighlight = () => {
-    // Show folder highlight when hovering over folder without position indicator
-    if (isOver && node.type === 'folder' && !isDropTarget) {
-      return 'bg-blue-600/20 ring-1 ring-blue-500'
-    }
-    return ''
-  }
-
-  const handleClick = () => {
-    setSelectedView(node.type as 'folder' | 'project', node.path)
-  }
-
-  const Icon = node.type === 'folder' ? Folder : ListTodo
-  const isSelected = selectedView === node.type && selectedPath === node.path
-  const dropHighlight = getDropHighlight()
-  const isFolder = node.type === 'folder'
-  const hasChildren = node.children.length > 0
-  const isCollapsed = collapsedFolders.has(node.path)
-
-  return (
-    <div>
-      <div className="relative">
-        {dropPosition === 'before' && <DropIndicatorLine position="before" />}
-        <button
-          ref={setNodeRef}
-          onClick={handleClick}
-          onContextMenu={(e) => onContextMenu?.(e, node)}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-            dropHighlight
-              ? dropHighlight
-              : isSelected
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
-          style={{ ...style, paddingLeft: `${12 + depth * 16}px` }}
-          {...attributes}
-          {...listeners}
-        >
-        <span className="flex items-center gap-2.5">
-          {isFolder && hasChildren ? (
-            <span
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleCollapse(node.path)
-              }}
-              className="flex items-center justify-center -ml-1 mr-0.5 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-            >
-              <ChevronRight
-                size={14}
-                className={`text-gray-400 dark:text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-              />
-            </span>
-          ) : isFolder ? (
-            <span className="w-[18px]" />
-          ) : null}
-          <Icon size={16} className={isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
-          <span>{node.name}</span>
-        </span>
-        {node.count !== undefined && node.count > 0 && (
-          <span className="text-gray-400 dark:text-gray-500 text-xs tabular-nums">{node.count}</span>
-        )}
-        </button>
-        {dropPosition === 'after' && <DropIndicatorLine position="after" />}
-      </div>
-      {hasChildren && !isCollapsed && (
-        <SortableContext items={node.children.map(c => c.path)} strategy={verticalListSortingStrategy}>
-          {node.children.map((child) => (
-            <TreeItem
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              onContextMenu={onContextMenu}
-              collapsedFolders={collapsedFolders}
-              onToggleCollapse={onToggleCollapse}
-            />
-          ))}
-        </SortableContext>
-      )}
-    </div>
-  )
-}
+import type { ItemChangedReason } from 'dnd-kit-sortable-tree/dist/types'
 
 // Simplified tree item for popover (no drag-drop)
 function PopoverTreeItem({
@@ -217,7 +62,7 @@ function PopoverTreeItem({
 }
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject, ungroupFolder, deleteProject } = useVault()
+  const { tree, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject, ungroupFolder, deleteProject, moveProject, updateSortOrder } = useVault()
   const { selectedView, setSelectedView, sidebarCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -228,10 +73,6 @@ export function Sidebar() {
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('task-vault-collapsed-folders')
-    return saved ? new Set(JSON.parse(saved)) : new Set()
-  })
   const listsPopoverRef = useRef<HTMLDivElement>(null)
   const addMenuRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
@@ -241,17 +82,35 @@ export function Sidebar() {
   const next7Count = getNext7DaysTasks().length
   const inboxCount = getInboxItems().length
 
-  const handleToggleCollapse = (path: string) => {
-    setCollapsedFolders(prev => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
-      }
-      localStorage.setItem('task-vault-collapsed-folders', JSON.stringify([...next]))
-      return next
+  const handleTreeChange = async (items: SidebarTreeItem[], reason: ItemChangedReason<{ node: TreeNode }>) => {
+    // Only process drop events (ignore collapse/expand)
+    if (reason.type !== 'dropped') return
+    if (!vaultPath) return
+
+    const { draggedItem, droppedToParent, draggedFromParent } = reason
+    const node = draggedItem.node
+
+    // Check if parent changed (moved into/out of folder)
+    const newParentId = droppedToParent?.id ?? null
+    const oldParentId = draggedFromParent?.id ?? null
+
+    if (newParentId !== oldParentId) {
+      // Item was moved to different parent
+      const targetPath = droppedToParent ? droppedToParent.node.path : vaultPath!
+      await moveProject(node.path, targetPath)
+    }
+
+    // Update sort orders based on new tree structure
+    // Find siblings at the same level as the dropped item
+    const siblings = items.filter(item => {
+      const itemParentId = item.parentId
+      return itemParentId === newParentId
     })
+
+    // Update sort order for all siblings at this level
+    for (let i = 0; i < siblings.length; i++) {
+      await updateSortOrder(siblings[i].node.path, i)
+    }
   }
 
   // Close popovers on click outside
@@ -617,19 +476,7 @@ export function Sidebar() {
             </div>
           </div>
           <div className="space-y-0.5">
-            <RootDropZone id="root-drop-top" position="top" />
-            <SortableContext items={tree.map(n => n.path)} strategy={verticalListSortingStrategy}>
-              {tree.map((node) => (
-                <TreeItem
-                  key={node.id}
-                  node={node}
-                  onContextMenu={(e, n) => contextMenu.open(e, n)}
-                  collapsedFolders={collapsedFolders}
-                  onToggleCollapse={handleToggleCollapse}
-                />
-              ))}
-            </SortableContext>
-            <RootDropZone id="root-drop-bottom" position="bottom" />
+            <SidebarTree onItemsChange={handleTreeChange} onContextMenu={(e, node) => contextMenu.open(e, node)} />
           </div>
         </div>
       </div>
