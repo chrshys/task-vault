@@ -70,7 +70,7 @@ function buildTree(items: Map<string, VaultItem>, vaultPath: string): TreeNode[]
 
     if (parentNode && parentPath !== nodePath) {
       parentNode.children.push(node)
-    } else if (nodePath !== vaultPath) {
+    } else if (nodePath !== vaultPath && node.name !== 'Inbox') {
       tree.push(node)
     }
   })
@@ -358,6 +358,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const newItemPath = path.join(newProjectDir, itemName)
         const updatedItem: VaultItem = {
           ...item,
+          id: newItemPath, // Update ID to new path
           path: newItemPath,
         }
         await updateItem(updatedItem)
@@ -457,6 +458,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const newItemPath = path.join(newProjectDir, itemName)
       const updatedItem: VaultItem = {
         ...item,
+        id: newItemPath, // Update ID to new path
         path: newItemPath,
       }
       await updateItem(updatedItem)
@@ -521,8 +523,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         modified: new Date().toISOString(),
       },
     }
+
+    // Update local state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      next.set(updatedItem.id, updatedItem)
+      if (vaultPath) rebuildTree(next, vaultPath)
+      return next
+    })
+
+    // Then persist to disk
     await updateItem(updatedItem)
-  }, [findItemByDirPath, updateItem])
+  }, [findItemByDirPath, updateItem, vaultPath, rebuildTree])
 
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
