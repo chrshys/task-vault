@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { DateTimePicker } from '../ui/DateTimePicker'
+import { RichTextEditor } from '../ui/RichTextEditor'
 import { SubtaskList } from '../task/SubtaskList'
 import type { VaultItem, TaskMeta } from '@shared/types'
 
@@ -98,11 +99,11 @@ export function TaskDetail() {
           </div>
         )}
 
-        <textarea
-          value={localItem.content}
-          onChange={(e) => handleContentChange(e.target.value)}
-          className="w-full h-64 bg-transparent border border-gray-700 rounded p-3 text-sm text-gray-200 resize-none outline-none focus:border-gray-500"
+        <RichTextEditor
+          content={localItem.content}
+          onChange={handleContentChange}
           placeholder="Add description..."
+          className="min-h-[200px]"
         />
 
         {isTask && <SubtaskList parentId={localItem.id} />}
