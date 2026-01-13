@@ -145,6 +145,38 @@ export function DndProvider({ children }: DndProviderProps) {
     return true
   }
 
+  const handleSidebarReorder = async (
+    draggedNode: TreeNode,
+    targetNode: TreeNode,
+    dropPosition: 'before' | 'after' | null
+  ): Promise<boolean> => {
+    const draggedParent = path.dirname(draggedNode.path)
+    const targetParent = path.dirname(targetNode.path)
+
+    // Must be same parent and same type to reorder
+    if (draggedParent !== targetParent || draggedNode.type !== targetNode.type) {
+      return false
+    }
+
+    const siblings = getSiblingItems(items, draggedParent, draggedNode.type as 'folder' | 'project')
+    const oldIndex = siblings.findIndex(s => getItemDirPath(s) === draggedNode.path)
+    const targetIndex = siblings.findIndex(s => getItemDirPath(s) === targetNode.path)
+
+    if (oldIndex === -1 || targetIndex === -1 || oldIndex === targetIndex) {
+      return false
+    }
+
+    let newIndex = dropPosition === 'before' ? targetIndex : targetIndex + 1
+    if (oldIndex < newIndex) newIndex--
+
+    const reordered = arrayMove(siblings, oldIndex, newIndex)
+    for (let i = 0; i < reordered.length; i++) {
+      await updateSortOrder(getItemDirPath(reordered[i]), i)
+    }
+
+    return true
+  }
+
   const handleDragStart = (event: { active: { id: string | number } }) => {
     const item = items.get(String(event.active.id))
     if (item) setActiveItem(item)
@@ -305,23 +337,8 @@ export function DndProvider({ children }: DndProviderProps) {
         }
 
         // Project dropped within a folder (reorder within folder)
-        if (draggedParent === targetParent && draggedNode.type === targetNode.type) {
-          const siblings = getSiblingItems(items, draggedParent, draggedNode.type as 'folder' | 'project')
-
-          const oldIndex = siblings.findIndex(s => getItemDirPath(s) === draggedNode.path)
-          const targetIndex = siblings.findIndex(s => getItemDirPath(s) === targetNode.path)
-
-          if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
-            let newIndex = position === 'before' ? targetIndex : targetIndex + 1
-            if (oldIndex < newIndex) newIndex--
-
-            const reordered = arrayMove(siblings, oldIndex, newIndex)
-            for (let i = 0; i < reordered.length; i++) {
-              await updateSortOrder(getItemDirPath(reordered[i]), i)
-            }
-          }
-          return
-        }
+        const reordered = await handleSidebarReorder(draggedNode, targetNode, currentDropTarget.position)
+        if (reordered) return
       }
 
       // No position indicator - check for folder drop (move into folder)
