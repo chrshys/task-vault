@@ -51,15 +51,15 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-2 text-sm border border-gray-600 rounded-md bg-gray-700 text-gray-200 hover:bg-gray-600"
+        className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
       >
         {getLabel()}
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 z-10 w-64 p-3 bg-gray-700 rounded-md shadow-lg border border-gray-600">
+        <div className="absolute top-full mt-1 left-0 z-10 w-64 p-3 bg-white dark:bg-gray-700 rounded-md shadow-lg border border-gray-200 dark:border-gray-600">
           <div className="mb-3">
-            <label className="block text-xs text-gray-400 mb-1">Frequency</label>
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Frequency</label>
             <div className="flex gap-1 flex-wrap">
               {frequencies.map(f => (
                 <button
@@ -69,7 +69,7 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
                   className={`px-2 py-1 text-xs rounded ${
                     value?.frequency === f.value
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
                   }`}
                 >
                   {f.label}
@@ -81,15 +81,15 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
           {value && (
             <>
               <div className="mb-3">
-                <label className="block text-xs text-gray-400 mb-1">Every</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Every</label>
                 <input
                   type="number"
                   min={1}
                   value={value.interval}
                   onChange={(e) => handleIntervalChange(parseInt(e.target.value) || 1)}
-                  className="w-16 px-2 py-1 text-sm bg-gray-600 border border-gray-500 rounded text-gray-200"
+                  className="w-16 px-2 py-1 text-sm bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded text-gray-800 dark:text-gray-200"
                 />
-                <span className="ml-2 text-sm text-gray-300">
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                   {value.frequency === 'daily' && (value.interval > 1 ? 'days' : 'day')}
                   {value.frequency === 'weekly' && (value.interval > 1 ? 'weeks' : 'week')}
                   {value.frequency === 'monthly' && (value.interval > 1 ? 'months' : 'month')}
@@ -98,11 +98,11 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
               </div>
 
               <div className="mb-3">
-                <label className="block text-xs text-gray-400 mb-1">Repeat from</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Repeat from</label>
                 <select
                   value={value.from}
                   onChange={(e) => handleFromChange(e.target.value as RepeatFrom)}
-                  className="w-full px-2 py-1 text-sm bg-gray-600 border border-gray-500 rounded text-gray-200"
+                  className="w-full px-2 py-1 text-sm bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded text-gray-800 dark:text-gray-200"
                 >
                   <option value="due_date">Due date</option>
                   <option value="completion_date">Completion date</option>
@@ -115,7 +115,7 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
             <button
               type="button"
               onClick={handleClear}
-              className="px-2 py-1 text-xs bg-gray-600 text-gray-200 rounded hover:bg-gray-500"
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
             >
               No repeat
             </button>
