@@ -61,6 +61,11 @@ export function DndProvider({ children }: DndProviderProps) {
       // Same parent and same type = reorder
       if (draggedParent === targetParent && draggedNode.type === targetNode.type) {
         // Find all siblings at this level
+        // Note on path structure:
+        // - VaultItem.path is the file path: /vault/ProjectA/.project.md
+        // - TreeNode.path is the directory path: /vault/ProjectA
+        // - dirname(i.path) gives /vault/ProjectA (project folder)
+        // - dirname(dirname(i.path)) gives /vault (parent of project folder)
         const siblings = Array.from(items.values())
           .filter(i => {
             if (i.meta.type !== draggedNode.type) return false
@@ -72,6 +77,7 @@ export function DndProvider({ children }: DndProviderProps) {
             return aOrder - bOrder
           })
 
+        // Match VaultItem to TreeNode by comparing dirname(file path) to directory path
         const oldIndex = siblings.findIndex(s => path.dirname(s.path) === draggedNode.path)
         const newIndex = siblings.findIndex(s => path.dirname(s.path) === targetNode.path)
 
