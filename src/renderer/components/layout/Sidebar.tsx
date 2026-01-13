@@ -1,80 +1,25 @@
 import { useState, useRef, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, FolderPlus, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Plus, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { SidebarTree } from './SidebarTree'
-import type { SidebarTreeItem } from '../../utils/sidebarTreeAdapter'
 import type { TreeNode } from '@shared/types'
-import type { ItemChangedReason } from 'dnd-kit-sortable-tree/dist/types'
-
-// Simplified tree item for popover (no drag-drop)
-function PopoverTreeItem({
-  node,
-  depth = 0,
-  onSelect,
-}: {
-  node: TreeNode
-  depth?: number
-  onSelect: () => void
-}) {
-  const { selectedView, selectedPath, setSelectedView } = useUI()
-
-  const handleClick = () => {
-    setSelectedView(node.type as 'folder' | 'project', node.path)
-    onSelect()
-  }
-
-  const Icon = node.type === 'folder' ? Folder : ListTodo
-  const isSelected = selectedView === node.type && selectedPath === node.path
-
-  return (
-    <div>
-      <button
-        onClick={handleClick}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-          isSelected
-            ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
-        }`}
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
-      >
-        <span className="flex items-center gap-2.5">
-          <Icon size={16} className={isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
-          <span className="truncate">{node.name}</span>
-        </span>
-        {node.count !== undefined && node.count > 0 && (
-          <span className="text-gray-400 dark:text-gray-500 text-xs tabular-nums">{node.count}</span>
-        )}
-      </button>
-      {node.children.length > 0 && (
-        <div>
-          {node.children.map((child) => (
-            <PopoverTreeItem key={child.id} node={child} depth={depth + 1} onSelect={onSelect} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export function Sidebar() {
-  const { tree, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject, ungroupFolder, deleteProject, moveProject, updateSortOrder } = useVault()
-  const { selectedView, setSelectedView, sidebarCollapsed } = useUI()
+  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject } = useVault()
+  const { selectedView, selectedPath, setSelectedView, sidebarCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
-  const [showNewFolder, setShowNewFolder] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
   const [showNewProject, setShowNewProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [showListsPopover, setShowListsPopover] = useState(false)
-  const [showAddMenu, setShowAddMenu] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
   const listsPopoverRef = useRef<HTMLDivElement>(null)
-  const addMenuRef = useRef<HTMLDivElement>(null)
+  const addButtonRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
   const contextMenu = useContextMenu<TreeNode>()
 
@@ -82,83 +27,31 @@ export function Sidebar() {
   const next7Count = getNext7DaysTasks().length
   const inboxCount = getInboxItems().length
 
-  const handleTreeChange = async (items: SidebarTreeItem[], reason: ItemChangedReason<{ node: TreeNode }>) => {
-    // Only process drop events (ignore collapse/expand)
-    if (reason.type !== 'dropped') return
-    if (!vaultPath) return
-
-    const { draggedItem, droppedToParent, draggedFromParent } = reason
-    const node = draggedItem.node
-
-    // Check if parent changed (moved into/out of folder)
-    const newParentId = droppedToParent?.id ?? null
-    const oldParentId = draggedFromParent?.id ?? null
-
-    if (newParentId !== oldParentId) {
-      // Item was moved to different parent
-      const targetPath = droppedToParent ? droppedToParent.node.path : vaultPath!
-      await moveProject(node.path, targetPath)
-    }
-
-    // Update sort orders based on new tree structure
-    // Find siblings at the same level as the dropped item
-    const siblings = items.filter(item => {
-      const itemParentId = item.parentId
-      return itemParentId === newParentId
-    })
-
-    // Update sort order for all siblings at this level
-    for (let i = 0; i < siblings.length; i++) {
-      await updateSortOrder(siblings[i].node.path, i)
-    }
-  }
-
   // Close popovers on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (listsPopoverRef.current && !listsPopoverRef.current.contains(e.target as Node)) {
         setShowListsPopover(false)
       }
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setShowAddMenu(false)
-        setShowNewFolder(false)
+      if (addButtonRef.current && !addButtonRef.current.contains(e.target as Node)) {
         setShowNewProject(false)
-        setNewFolderName('')
         setNewProjectName('')
       }
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
         setShowSettingsMenu(false)
       }
     }
-    if (showListsPopover || showAddMenu || showSettingsMenu) {
+    if (showListsPopover || showNewProject || showSettingsMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showListsPopover, showAddMenu, showSettingsMenu])
-
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return
-    await createFolder(newFolderName.trim())
-    setNewFolderName('')
-    setShowNewFolder(false)
-    setShowAddMenu(false)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCreateFolder()
-    } else if (e.key === 'Escape') {
-      setNewFolderName('')
-      setShowNewFolder(false)
-    }
-  }
+  }, [showListsPopover, showNewProject, showSettingsMenu])
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return
     await createProject(newProjectName.trim())
     setNewProjectName('')
     setShowNewProject(false)
-    setShowAddMenu(false)
   }
 
   const handleProjectKeyDown = (e: React.KeyboardEvent) => {
@@ -170,16 +63,96 @@ export function Sidebar() {
     }
   }
 
-  const handleUngroup = async () => {
-    if (!contextMenu.data || contextMenu.data.type !== 'folder') return
-    await ungroupFolder(contextMenu.data.path)
-    contextMenu.close()
-  }
-
   const handleDeleteProject = async () => {
     if (!deleteConfirm.node || deleteConfirm.node.type !== 'project') return
     await deleteProject(deleteConfirm.node.path)
     setDeleteConfirm({open: false, node: null})
+  }
+
+  // Inbox drop zone component (expanded view)
+  const InboxDropZone = () => {
+    const { setNodeRef, isOver } = useDroppable({ id: 'inbox-drop' })
+
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={() => setSelectedView('inbox')}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+          isOver
+            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
+            : selectedView === 'inbox'
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+        }`}
+      >
+        <span className="flex items-center gap-2.5">
+          <Inbox size={16} className={isOver ? 'text-blue-500 dark:text-blue-400' : selectedView === 'inbox' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+          <span>Inbox</span>
+        </span>
+        {inboxCount > 0 && (
+          <span className={`text-xs tabular-nums ${isOver ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{inboxCount}</span>
+        )}
+      </button>
+    )
+  }
+
+  // Inbox drop zone component (collapsed view - icon only)
+  const CollapsedInboxDropZone = () => {
+    const { setNodeRef, isOver } = useDroppable({ id: 'inbox-drop' })
+
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={() => setSelectedView('inbox')}
+        className={`p-2.5 rounded-lg transition-colors ${
+          isOver
+            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
+            : selectedView === 'inbox'
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
+        }`}
+        title={`Inbox${inboxCount > 0 ? ` (${inboxCount})` : ''}`}
+      >
+        <Inbox size={18} className={isOver ? 'text-blue-500 dark:text-blue-400' : ''} />
+      </button>
+    )
+  }
+
+  // Render a single project item (drop zone for cross-project task moves)
+  const ProjectItem = ({ node, onClick }: { node: TreeNode, onClick?: () => void }) => {
+    const isSelected = selectedView === 'project' && selectedPath === node.path
+    const { setNodeRef, isOver } = useDroppable({
+      id: `project-drop-${node.id}`,
+      data: { node }
+    })
+
+    const handleClick = () => {
+      setSelectedView('project', node.path)
+      onClick?.()
+    }
+
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={handleClick}
+        onContextMenu={(e) => contextMenu.open(e, node)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+          isOver
+            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
+            : isSelected
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+        }`}
+      >
+        <span className="flex items-center gap-2.5">
+          <ListTodo size={16} className={isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+          <span className="truncate">{node.name}</span>
+        </span>
+        {node.count !== undefined && node.count > 0 && (
+          <span className={`text-xs tabular-nums ${isOver ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{node.count}</span>
+        )}
+      </button>
+    )
   }
 
   // Collapsed sidebar view - icon only
@@ -209,17 +182,7 @@ export function Sidebar() {
           >
             <CalendarRange size={18} />
           </button>
-          <button
-            onClick={() => setSelectedView('inbox')}
-            className={`p-2.5 rounded-lg transition-colors ${
-              selectedView === 'inbox'
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-            title={`Inbox${inboxCount > 0 ? ` (${inboxCount})` : ''}`}
-          >
-            <Inbox size={18} />
-          </button>
+          <CollapsedInboxDropZone />
 
           {/* Lists popover */}
           {tree.length > 0 && (
@@ -227,24 +190,24 @@ export function Sidebar() {
               <button
                 onClick={() => setShowListsPopover(!showListsPopover)}
                 className={`p-2.5 rounded-lg transition-colors ${
-                  showListsPopover || selectedView === 'folder' || selectedView === 'project'
+                  showListsPopover || selectedView === 'project'
                     ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
-                title="Lists"
+                title="Projects"
               >
                 <List size={18} />
               </button>
               {showListsPopover && (
                 <div className="absolute left-full top-0 ml-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 max-h-80 overflow-y-auto">
                   <p className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                    Lists
+                    Projects
                   </p>
                   {tree.map((node) => (
-                    <PopoverTreeItem
+                    <ProjectItem
                       key={node.id}
                       node={node}
-                      onSelect={() => setShowListsPopover(false)}
+                      onClick={() => setShowListsPopover(false)}
                     />
                   ))}
                 </div>
@@ -351,132 +314,66 @@ export function Sidebar() {
             )}
           </button>
 
-          <button
-            onClick={() => setSelectedView('inbox')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-              selectedView === 'inbox'
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <Inbox size={16} className={selectedView === 'inbox' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
-              <span>Inbox</span>
-            </span>
-            {inboxCount > 0 && (
-              <span className="text-gray-400 dark:text-gray-500 text-xs tabular-nums">{inboxCount}</span>
-            )}
-          </button>
+          <InboxDropZone />
         </div>
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
           <div className="flex items-center justify-between px-3 mb-2">
             <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              Lists
+              Projects
             </p>
-            <div ref={addMenuRef} className="relative">
+            <div ref={addButtonRef} className="relative">
               <button
-                onClick={() => setShowAddMenu(!showAddMenu)}
+                onClick={() => setShowNewProject(!showNewProject)}
                 className={`p-1 -m-1 rounded transition-colors ${
-                  showAddMenu
+                  showNewProject
                     ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
                     : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
-                title="Add new..."
+                title="New project"
               >
                 <Plus size={12} strokeWidth={2.5} />
               </button>
-              {showAddMenu && (
+              {showNewProject && (
                 <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
-                  {showNewFolder ? (
-                    // Folder creation screen
-                    <div className="px-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FolderPlus size={14} className="text-gray-400 dark:text-gray-500" />
-                        <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Folder</span>
-                      </div>
-                      <input
-                        type="text"
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Folder name..."
-                        className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <div className="flex justify-end gap-2 mt-2">
-                        <button
-                          onClick={() => { setShowNewFolder(false); setNewFolderName('') }}
-                          className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleCreateFolder}
-                          disabled={!newFolderName.trim()}
-                          className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          Create
-                        </button>
-                      </div>
+                  <div className="px-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ListTodo size={14} className="text-gray-400 dark:text-gray-500" />
+                      <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Project</span>
                     </div>
-                  ) : showNewProject ? (
-                    // Project creation screen
-                    <div className="px-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <ListTodo size={14} className="text-gray-400 dark:text-gray-500" />
-                        <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Project</span>
-                      </div>
-                      <input
-                        type="text"
-                        value={newProjectName}
-                        onChange={(e) => setNewProjectName(e.target.value)}
-                        onKeyDown={handleProjectKeyDown}
-                        placeholder="Project name..."
-                        className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <div className="flex justify-end gap-2 mt-2">
-                        <button
-                          onClick={() => { setShowNewProject(false); setNewProjectName('') }}
-                          className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleCreateProject}
-                          disabled={!newProjectName.trim()}
-                          className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          Create
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Menu selection screen
-                    <>
+                    <input
+                      type="text"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      onKeyDown={handleProjectKeyDown}
+                      placeholder="Project name..."
+                      className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
                       <button
-                        onClick={() => setShowNewFolder(true)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        onClick={() => { setShowNewProject(false); setNewProjectName('') }}
+                        className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
-                        <FolderPlus size={16} />
-                        <span>New Folder</span>
+                        Cancel
                       </button>
                       <button
-                        onClick={() => setShowNewProject(true)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        onClick={handleCreateProject}
+                        disabled={!newProjectName.trim()}
+                        className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        <ListTodo size={16} />
-                        <span>New Project</span>
+                        Create
                       </button>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
           <div className="space-y-0.5">
-            <SidebarTree onItemsChange={handleTreeChange} onContextMenu={(e, node) => contextMenu.open(e, node)} />
+            {tree.map((node) => (
+              <ProjectItem key={node.id} node={node} />
+            ))}
           </div>
         </div>
       </div>
@@ -537,17 +434,12 @@ export function Sidebar() {
         </div>
       </div>
 
-      {contextMenu.isOpen && contextMenu.data && (
+      {contextMenu.isOpen && contextMenu.data && contextMenu.data.type === 'project' && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
-          {contextMenu.data.type === 'folder' && (
-            <ContextMenuItem onClick={handleUngroup}>Ungroup</ContextMenuItem>
-          )}
-          {contextMenu.data.type === 'project' && (
-            <ContextMenuItem variant="danger" onClick={() => {
-              setDeleteConfirm({open: true, node: contextMenu.data})
-              contextMenu.close()
-            }}>Delete</ContextMenuItem>
-          )}
+          <ContextMenuItem variant="danger" onClick={() => {
+            setDeleteConfirm({open: true, node: contextMenu.data})
+            contextMenu.close()
+          }}>Delete</ContextMenuItem>
         </ContextMenu>
       )}
 

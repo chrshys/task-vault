@@ -35,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, updateItem, updateSortOrder } = useVault()
+  const { items, updateItem, updateSortOrder, vaultPath } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -65,8 +65,8 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
       const draggedItem = items.get(activeId)
       if (!draggedItem) return
 
-      // Only handle task/note items (not folders/projects)
-      if (draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') return
+      // Only handle task/note items (not projects)
+      if (draggedItem.meta.type === 'project') return
 
       // Handle task reordering within the same list (sortable task list)
       const overItem = items.get(overId)
@@ -78,7 +78,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         if (parentPath === path.dirname(overItem.path)) {
           const siblings = Array.from(items.values())
             .filter(i => {
-              if (i.meta.type === 'folder' || i.meta.type === 'project') return false
+              if (i.meta.type === 'project') return false
               // Filter out subtasks - only sort top-level items
               if (i.meta.type === 'task' && (i.meta as TaskMeta).parent) return false
               return path.dirname(i.path) === parentPath
@@ -108,6 +108,22 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         const targetPath = overData.node.path
         const filename = path.basename(draggedItem.path)
         const newPath = path.join(targetPath, filename)
+
+        if (newPath !== draggedItem.path) {
+          await updateItem({
+            ...draggedItem,
+            path: newPath,
+            meta: { ...draggedItem.meta, modified: new Date().toISOString() } as typeof draggedItem.meta,
+          })
+        }
+        return
+      }
+
+      // Check if target is the inbox drop zone
+      if (overId === 'inbox-drop' && vaultPath) {
+        const inboxPath = path.join(vaultPath, 'Inbox')
+        const filename = path.basename(draggedItem.path)
+        const newPath = path.join(inboxPath, filename)
 
         if (newPath !== draggedItem.path) {
           await updateItem({

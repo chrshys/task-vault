@@ -25,33 +25,35 @@ function MainLayout() {
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
       <TitleBar />
-      <div className="flex-1 flex min-h-0">
-        <div
-          className={`${
-            sidebarCollapsed ? 'w-14' : 'w-64'
-          } border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-[width] duration-200`}
-        >
-          <Sidebar />
-        </div>
-        <div className="flex-1 flex min-w-0">
+      <TreeDndProvider>
+        <div className="flex-1 flex min-h-0">
           <div
             className={`${
-              selectedTaskId ? 'w-2/5' : 'flex-1'
-            } min-w-[320px] border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
+              sidebarCollapsed ? 'w-14' : 'w-64'
+            } border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-[width] duration-200`}
           >
-            <TaskList />
+            <Sidebar />
           </div>
-          {selectedTaskId && (
-            <div className="flex-1 min-w-[360px] overflow-hidden">
-              {isNote ? (
-                <NoteDetail note={selectedItem as VaultNote} />
-              ) : (
-                <TaskDetail />
-              )}
+          <div className="flex-1 flex min-w-0">
+            <div
+              className={`${
+                selectedTaskId ? 'w-2/5' : 'flex-1'
+              } min-w-[320px] border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
+            >
+              <TaskList />
             </div>
-          )}
+            {selectedTaskId && (
+              <div className="flex-1 min-w-[360px] overflow-hidden">
+                {isNote ? (
+                  <NoteDetail note={selectedItem as VaultNote} />
+                ) : (
+                  <TaskDetail />
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </TreeDndProvider>
       {showQuickAdd && (
         <QuickAddModal type={quickAddType} onClose={closeQuickAdd} />
       )}
@@ -88,9 +90,7 @@ function AppContent() {
 
   return (
     <HistoryProvider>
-      <TreeDndProvider>
-        <MainLayout />
-      </TreeDndProvider>
+      <MainLayout />
     </HistoryProvider>
   )
 }
