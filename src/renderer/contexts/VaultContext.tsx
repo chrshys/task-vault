@@ -11,6 +11,7 @@ interface VaultContextValue {
   initializeVault: (path: string) => Promise<void>
   createItem: (type: ItemType, folder: string, title: string, dueDate?: Date | null, repeat?: RepeatConfig | null) => Promise<VaultItem>
   updateItem: (item: VaultItem) => Promise<void>
+  moveItem: (item: VaultItem, newPath: string) => Promise<void>
   deleteItem: (path: string) => Promise<void>
   duplicateItem: (item: VaultItem) => Promise<VaultItem>
   convertItem: (item: VaultItem, toType: 'task' | 'note') => Promise<void>
@@ -127,6 +128,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const updateItem = useCallback(async (item: VaultItem) => {
     await window.api.writeFile(item.path, item)
   }, [])
+
+  const moveItem = useCallback(async (item: VaultItem, newPath: string) => {
+    const oldPath = item.path
+    if (oldPath === newPath) return
+
+    const updatedItem: VaultItem = {
+      ...item,
+      path: newPath,
+      meta: { ...item.meta, modified: new Date().toISOString() } as typeof item.meta,
+    }
+
+    // Update local state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      next.set(item.id, updatedItem)
+      rebuildTree(next)
+      return next
+    })
+
+    // Then move the file on disk
+    await window.api.moveFile(oldPath, newPath)
+  }, [rebuildTree])
 
   const deleteItem = useCallback(async (itemPath: string) => {
     await window.api.deleteFile(itemPath)
@@ -443,6 +466,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         initializeVault,
         createItem,
         updateItem,
+        moveItem,
         deleteItem,
         duplicateItem,
         convertItem,

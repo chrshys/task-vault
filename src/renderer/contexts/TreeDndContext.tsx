@@ -35,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, updateItem, updateSortOrder, vaultPath } = useVault()
+  const { items, moveItem, updateSortOrder, vaultPath } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -110,11 +110,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         const newPath = path.join(targetPath, filename)
 
         if (newPath !== draggedItem.path) {
-          await updateItem({
-            ...draggedItem,
-            path: newPath,
-            meta: { ...draggedItem.meta, modified: new Date().toISOString() } as typeof draggedItem.meta,
-          })
+          await moveItem(draggedItem, newPath)
         }
         return
       }
@@ -126,11 +122,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         const newPath = path.join(inboxPath, filename)
 
         if (newPath !== draggedItem.path) {
-          await updateItem({
-            ...draggedItem,
-            path: newPath,
-            meta: { ...draggedItem.meta, modified: new Date().toISOString() } as typeof draggedItem.meta,
-          })
+          await moveItem(draggedItem, newPath)
         }
         return
       }
