@@ -5,12 +5,15 @@ import { DateTimePicker } from '../ui/DateTimePicker'
 import { RichTextEditor } from '../ui/RichTextEditor'
 import { RecurrencePicker } from '../ui/RecurrencePicker'
 import { SubtaskList } from '../task/SubtaskList'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useConfirm } from '../../hooks/useConfirm'
 import type { VaultItem, TaskMeta, RepeatConfig } from '@shared/types'
 
 export function TaskDetail() {
   const { items, updateItem, deleteItem } = useVault()
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const [localItem, setLocalItem] = useState<VaultItem | null>(null)
+  const { confirm, dialogProps } = useConfirm()
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
 
@@ -31,6 +34,13 @@ export function TaskDetail() {
 
   const handleDelete = async () => {
     if (!selectedItem) return
+    const confirmed = await confirm({
+      title: 'Delete Task',
+      message: `Are you sure you want to delete "${selectedItem.title}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!confirmed) return
     await deleteItem(selectedItem.path)
     setSelectedTaskId(null)
   }
@@ -123,6 +133,7 @@ export function TaskDetail() {
 
         {isTask && <SubtaskList parentId={localItem.id} />}
       </div>
+      {dialogProps && <ConfirmDialog {...dialogProps} />}
     </div>
   )
 }
