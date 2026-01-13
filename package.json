@@ -25,6 +25,7 @@
     "@types/react-datepicker": "^6.2.0",
     "chokidar": "^3.6.0",
     "date-fns": "^3.6.0",
+    "dnd-kit-sortable-tree": "^0.1.73",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.562.0",
     "nanoid": "^5.0.7",
