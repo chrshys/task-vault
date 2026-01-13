@@ -123,11 +123,11 @@ export async function createFile(
   folder: string,
   title: string
 ): Promise<VaultItem> {
-  const id = generateId()
   const now = new Date().toISOString()
 
   let meta: FolderMeta | ProjectMeta | TaskMeta | NoteMeta
   let filename: string
+  let id: string
 
   switch (type) {
     case 'folder':
@@ -135,18 +135,24 @@ export async function createFile(
       filename = '_folder.md'
       folder = path.join(folder, title)
       await fs.mkdir(folder, { recursive: true })
+      // For folders, use the directory path as ID (guaranteed unique)
+      id = folder
       break
     case 'project':
       meta = { type: 'project', name: title, sort_order: 0, created: now }
       filename = '_project.md'
       folder = path.join(folder, title)
       await fs.mkdir(folder, { recursive: true })
+      // For projects, use the directory path as ID (guaranteed unique)
+      id = folder
       break
     case 'task':
+      id = generateId()
       meta = { type: 'task', status: 'pending', parent: null, repeat: null, created: now, modified: now }
       filename = createFilename(id, title)
       break
     case 'note':
+      id = generateId()
       meta = { type: 'note', parent: null, repeat: null, created: now, modified: now }
       filename = createFilename(id, title)
       break
