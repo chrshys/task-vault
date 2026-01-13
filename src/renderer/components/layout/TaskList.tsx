@@ -4,7 +4,7 @@ import { useUI } from '../../contexts/UIContext'
 import { TaskRow } from '../task/TaskRow'
 import { EmptyState } from '../ui/EmptyState'
 import { DueDatePicker } from '../ui/DueDatePicker'
-import type { VaultItem, RepeatConfig } from '@shared/types'
+import type { VaultItem, RepeatConfig, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
 
 export function TaskList() {
@@ -30,6 +30,8 @@ export function TaskList() {
         if (!selectedPath) return []
         return Array.from(items.values()).filter(item => {
           if (item.meta.type === 'folder' || item.meta.type === 'project') return false
+          // Filter out subtasks - only show top-level tasks
+          if (item.meta.type === 'task' && (item.meta as TaskMeta).parent) return false
           return path.dirname(item.path) === selectedPath
         })
       default:
