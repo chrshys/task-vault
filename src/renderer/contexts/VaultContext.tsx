@@ -326,6 +326,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       throw new Error('Folder not found')
     }
 
+    // Track items to add/remove from state
+    const itemsToRemove: string[] = [folderItem.id]
+    const itemsToAdd: VaultItem[] = []
+
     // Get all projects in this folder
     const projects = getProjectsInFolder(folderPath)
 
@@ -339,10 +343,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // Update project item path
       const updatedProject: VaultItem = {
         ...project,
-        id: newProjectDir,  // Update ID to new directory
+        id: newProjectDir,
         path: newProjectPath,
       }
       await updateItem(updatedProject)
+      itemsToRemove.push(project.id)
+      itemsToAdd.push(updatedProject)
 
       // Move all items inside the project
       const projectItems = getItemsInDirectory(projectDir)
@@ -355,8 +361,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           path: newItemPath,
         }
         await updateItem(updatedItem)
-        // Delete old file after writing to new path
         await deleteItem(oldItemPath)
+        itemsToRemove.push(item.id)
+        itemsToAdd.push(updatedItem)
       }
 
       // Delete old project marker
@@ -365,7 +372,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     // Delete the folder
     await deleteItem(folderItem.path)
-  }, [vaultPath, findItemByDirPath, getProjectsInFolder, getItemsInDirectory, updateItem, deleteItem])
+
+    // Update state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      for (const id of itemsToRemove) {
+        next.delete(id)
+      }
+      for (const item of itemsToAdd) {
+        next.set(item.id, item)
+      }
+      if (vaultPath) rebuildTree(next, vaultPath)
+      return next
+    })
+  }, [vaultPath, findItemByDirPath, getProjectsInFolder, getItemsInDirectory, updateItem, deleteItem, rebuildTree])
 
   const deleteProject = useCallback(async (projectPath: string) => {
     // Find the project item
@@ -374,17 +394,31 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       throw new Error('Project not found')
     }
 
+    // Track items to remove from state
+    const itemsToRemove: string[] = [projectItem.id]
+
     // Get all items in this project
     const projectItems = getItemsInDirectory(projectPath)
 
     // Delete all tasks/notes in the project
     for (const item of projectItems) {
       await deleteItem(item.path)
+      itemsToRemove.push(item.id)
     }
 
     // Delete the project item itself
     await deleteItem(projectItem.path)
-  }, [findItemByDirPath, getItemsInDirectory, deleteItem])
+
+    // Update state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      for (const id of itemsToRemove) {
+        next.delete(id)
+      }
+      if (vaultPath) rebuildTree(next, vaultPath)
+      return next
+    })
+  }, [findItemByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildTree])
 
   const moveProject = useCallback(async (projectPath: string, targetFolderPath: string) => {
     // Find the project item
@@ -397,6 +431,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const newProjectDir = path.join(targetFolderPath, projectName)
     const newProjectFilePath = path.join(newProjectDir, '.project.md')
 
+    // Track items to add/remove from state
+    const itemsToRemove: string[] = [projectItem.id]
+    const itemsToAdd: VaultItem[] = []
+
     // Update project item path and ID
     const updatedProject: VaultItem = {
       ...projectItem,
@@ -404,6 +442,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       path: newProjectFilePath,
     }
     await updateItem(updatedProject)
+    itemsToAdd.push(updatedProject)
 
     // Move all items inside the project
     const projectItems = getItemsInDirectory(projectPath)
@@ -416,13 +455,30 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         path: newItemPath,
       }
       await updateItem(updatedItem)
-      // Delete old file after writing to new path
       await deleteItem(oldItemPath)
+
+      itemsToRemove.push(item.id)
+      itemsToAdd.push(updatedItem)
     }
 
     // Delete old project marker
     await deleteItem(projectItem.path)
-  }, [findItemByDirPath, getItemsInDirectory, updateItem, deleteItem])
+
+    // Update state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      // Remove old items
+      for (const id of itemsToRemove) {
+        next.delete(id)
+      }
+      // Add updated items
+      for (const item of itemsToAdd) {
+        next.set(item.id, item)
+      }
+      if (vaultPath) rebuildTree(next, vaultPath)
+      return next
+    })
+  }, [findItemByDirPath, getItemsInDirectory, updateItem, deleteItem, vaultPath, rebuildTree])
 
   const createFolderWithProjects = useCallback(async (folderName: string, projectPaths: string[]): Promise<VaultItem> => {
     if (!vaultPath) throw new Error('No vault path set')
