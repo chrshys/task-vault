@@ -173,13 +173,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [createItem, updateItem])
 
   const convertItem = useCallback(async (item: VaultItem, toType: 'task' | 'note') => {
-    console.log('convertItem called:', { itemType: item.meta.type, toType, path: item.path })
     if (item.meta.type === toType) {
-      console.log('convertItem: skipping - already target type')
       return
     }
     if (item.meta.type !== 'task' && item.meta.type !== 'note') {
-      console.log('convertItem: skipping - not a task or note')
       return
     }
 
@@ -195,9 +192,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       ? { ...baseMeta, type: 'task' as const, status: 'pending' as const }
       : { ...baseMeta, type: 'note' as const }
 
-    console.log('convertItem: updating with newMeta:', newMeta)
     await updateItem({ ...item, meta: newMeta as TaskMeta | NoteMeta })
-    console.log('convertItem: done')
   }, [updateItem])
 
   const createFolder = useCallback(async (name: string, parentPath?: string) => {
@@ -352,6 +347,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // Move all items inside the project
       const projectItems = getItemsInDirectory(projectDir)
       for (const item of projectItems) {
+        const oldItemPath = item.path
         const itemName = path.basename(item.path)
         const newItemPath = path.join(newProjectDir, itemName)
         const updatedItem: VaultItem = {
@@ -359,6 +355,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           path: newItemPath,
         }
         await updateItem(updatedItem)
+        // Delete old file after writing to new path
+        await deleteItem(oldItemPath)
       }
 
       // Delete old project marker
@@ -410,6 +408,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     // Move all items inside the project
     const projectItems = getItemsInDirectory(projectPath)
     for (const item of projectItems) {
+      const oldItemPath = item.path
       const itemName = path.basename(item.path)
       const newItemPath = path.join(newProjectDir, itemName)
       const updatedItem: VaultItem = {
@@ -417,6 +416,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         path: newItemPath,
       }
       await updateItem(updatedItem)
+      // Delete old file after writing to new path
+      await deleteItem(oldItemPath)
     }
 
     // Delete old project marker
@@ -455,6 +456,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       meta: {
         ...meta,
         sort_order: newOrder,
+        modified: new Date().toISOString(),
       },
     }
     await updateItem(updatedItem)
