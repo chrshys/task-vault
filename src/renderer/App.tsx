@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
-import { DndProvider } from './contexts/DndContext'
+import { TreeDndProvider } from './contexts/TreeDndContext'
 import { HistoryProvider } from './contexts/HistoryContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Welcome } from './components/Welcome'
@@ -88,9 +88,9 @@ function AppContent() {
 
   return (
     <HistoryProvider>
-      <DndProvider>
+      <TreeDndProvider>
         <MainLayout />
-      </DndProvider>
+      </TreeDndProvider>
     </HistoryProvider>
   )
 }

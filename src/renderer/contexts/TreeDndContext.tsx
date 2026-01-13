@@ -10,8 +10,9 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { useVault } from './VaultContext'
-import type { VaultItem, TreeNode } from '@shared/types'
+import type { VaultItem, TreeNode, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
 
 interface TreeDndContextValue {
@@ -34,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, updateItem } = useVault()
+  const { items, updateItem, updateSortOrder } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -54,9 +55,10 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
     const { active, over } = event
 
     try {
-      if (!over) return
+      if (!over || active.id === over.id) return
 
       const activeId = String(active.id)
+      const overId = String(over.id)
       const overData = over.data.current as { node?: TreeNode } | undefined
 
       // Check if this is a task being dropped on a sidebar project
@@ -66,7 +68,42 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
       // Only handle task/note items (not folders/projects)
       if (draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') return
 
+      // Handle task reordering within the same list (sortable task list)
+      const overItem = items.get(overId)
+      if (overItem &&
+          (draggedItem.meta.type === 'task' || draggedItem.meta.type === 'note') &&
+          (overItem.meta.type === 'task' || overItem.meta.type === 'note')) {
+        // Get all sibling items in the same directory
+        const parentPath = path.dirname(draggedItem.path)
+        if (parentPath === path.dirname(overItem.path)) {
+          const siblings = Array.from(items.values())
+            .filter(i => {
+              if (i.meta.type === 'folder' || i.meta.type === 'project') return false
+              // Filter out subtasks - only sort top-level items
+              if (i.meta.type === 'task' && (i.meta as TaskMeta).parent) return false
+              return path.dirname(i.path) === parentPath
+            })
+            .sort((a, b) => {
+              const aOrder = a.meta.sort_order ?? Infinity
+              const bOrder = b.meta.sort_order ?? Infinity
+              return aOrder - bOrder
+            })
+
+          const oldIndex = siblings.findIndex(i => i.id === activeId)
+          const newIndex = siblings.findIndex(i => i.id === overId)
+
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            const reordered = arrayMove(siblings, oldIndex, newIndex)
+            for (let i = 0; i < reordered.length; i++) {
+              await updateSortOrder(reordered[i].path, i)
+            }
+            return
+          }
+        }
+      }
+
       // Check if target is a sidebar project (has node property with type 'project')
+      // This handles cross-project task moves
       if (overData?.node?.type === 'project') {
         const targetPath = overData.node.path
         const filename = path.basename(draggedItem.path)
@@ -81,8 +118,6 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         }
         return
       }
-
-      // Task reordering is handled by DndContext (old one, for now)
     } finally {
       setActiveId(null)
       setActiveItem(null)
