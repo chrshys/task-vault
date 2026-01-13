@@ -3,6 +3,7 @@ import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
 import { DndProvider } from './contexts/DndContext'
 import { HistoryProvider } from './contexts/HistoryContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import { Welcome } from './components/Welcome'
 import { TitleBar } from './components/layout/TitleBar'
 import { Sidebar } from './components/layout/Sidebar'
@@ -84,10 +85,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <VaultProvider>
-      <UIProvider>
-        <AppContent />
-      </UIProvider>
-    </VaultProvider>
+    <ThemeProvider>
+      <VaultProvider>
+        <UIProvider>
+          <AppContent />
+        </UIProvider>
+      </VaultProvider>
+    </ThemeProvider>
   )
 }
