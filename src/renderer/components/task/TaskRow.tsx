@@ -1,4 +1,5 @@
 import { format, isToday, isTomorrow, isPast } from 'date-fns'
+import { useDraggable } from '@dnd-kit/core'
 import type { VaultItem, TaskMeta } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
 
@@ -18,6 +19,9 @@ function formatDueDate(due: string): string {
 
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: item.id,
+  })
   const isSelected = selectedTaskId === item.id
   const isTask = item.meta.type === 'task'
   const taskMeta = isTask ? (item.meta as TaskMeta) : null
@@ -25,11 +29,19 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   const due = taskMeta?.due
   const isOverdue = due && isPast(new Date(due)) && !isCompleted
 
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
       className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer ${
         isSelected ? 'bg-gray-700' : 'hover:bg-gray-800'
-      }`}
+      } ${isDragging ? 'opacity-50' : ''}`}
       onClick={() => setSelectedTaskId(item.id)}
     >
       {isTask && (
