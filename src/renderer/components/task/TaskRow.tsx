@@ -1,5 +1,4 @@
 import { format, isToday, isTomorrow, isPast } from 'date-fns'
-import { useDraggable } from '@dnd-kit/core'
 import type { VaultItem, TaskMeta } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
 import { useVault } from '../../contexts/VaultContext'
@@ -34,9 +33,6 @@ function getFirstLine(html: string): string {
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const { deleteItem, duplicateItem, convertItem } = useVault()
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: item.id,
-  })
   const contextMenu = useContextMenu<VaultItem>()
   const { confirm, dialogProps } = useConfirm()
   const isSelected = selectedTaskId === item.id
@@ -45,10 +41,6 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   const isCompleted = taskMeta?.status === 'completed'
   const due = taskMeta?.due
   const isOverdue = due && isPast(new Date(due)) && !isCompleted
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined
 
   const handleDelete = async () => {
     contextMenu.close()
@@ -81,13 +73,9 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   return (
     <>
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
       className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer ${
         isSelected ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-      } ${isDragging ? 'opacity-50' : ''}`}
+      }`}
       onClick={() => setSelectedTaskId(item.id)}
       onContextMenu={(e) => contextMenu.open(e, item)}
     >
