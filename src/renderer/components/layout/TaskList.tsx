@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { TaskRow } from '../task/TaskRow'
+import { EmptyState } from '../ui/EmptyState'
 import type { VaultItem } from '@shared/types'
 import path from 'path-browserify'
 
@@ -89,7 +90,25 @@ export function TaskList() {
 
       <div className="flex-1 overflow-y-auto p-2">
         {displayItems.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">No tasks</p>
+          <EmptyState
+            {...(selectedView === 'today' ? {
+              icon: '(tada)',
+              title: 'All done for today!',
+              description: 'No tasks due today. Enjoy your day or add something new.',
+            } : selectedView === 'next7' ? {
+              icon: '(calendar)',
+              title: 'Week looks clear',
+              description: 'No tasks due in the next 7 days.',
+            } : selectedView === 'inbox' ? {
+              icon: '(inbox)',
+              title: 'Inbox is empty',
+              description: 'Items without a folder appear here.',
+            } : {
+              icon: '(folder)',
+              title: 'No tasks yet',
+              description: 'Create your first task in this folder.',
+            })}
+          />
         ) : (
           displayItems.map((item) => (
             <TaskRow
