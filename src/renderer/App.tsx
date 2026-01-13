@@ -10,11 +10,12 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TaskList } from './components/layout/TaskList'
 import { TaskDetail } from './components/layout/TaskDetail'
 import { NoteDetail } from './components/layout/NoteDetail'
+import { QuickAddModal } from './components/ui/QuickAddModal'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { AppSettings, VaultNote } from '@shared/types'
 
 function MainLayout() {
-  const { selectedTaskId } = useUI()
+  const { selectedTaskId, showQuickAdd, quickAddType, closeQuickAdd } = useUI()
   const { items } = useVault()
   useKeyboardShortcuts()
 
@@ -43,6 +44,9 @@ function MainLayout() {
           )}
         </div>
       </div>
+      {showQuickAdd && (
+        <QuickAddModal type={quickAddType} onClose={closeQuickAdd} />
+      )}
     </div>
   )
 }
