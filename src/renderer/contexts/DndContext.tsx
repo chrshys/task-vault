@@ -12,7 +12,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable'
 import { useState, createContext, useContext, type ReactNode } from 'react'
 import { useVault } from './VaultContext'
-import type { VaultItem, TaskMeta, TreeNode } from '@shared/types'
+import type { VaultItem, TaskMeta, TreeNode, FolderMeta, ProjectMeta } from '@shared/types'
 import path from 'path-browserify'
 
 // Drop target tracking
@@ -38,6 +38,22 @@ export function useDropIndicator() {
 
 interface DndProviderProps {
   children: ReactNode
+}
+
+/**
+ * Get all root-level folders and projects, sorted by sort_order
+ */
+function getRootLevelItems(items: Map<string, VaultItem>, vaultPath: string): VaultItem[] {
+  return Array.from(items.values())
+    .filter(i => {
+      if (i.meta.type !== 'project' && i.meta.type !== 'folder') return false
+      return path.dirname(path.dirname(i.path)) === vaultPath
+    })
+    .sort((a, b) => {
+      const aOrder = (a.meta as FolderMeta | ProjectMeta).sort_order ?? Infinity
+      const bOrder = (b.meta as FolderMeta | ProjectMeta).sort_order ?? Infinity
+      return aOrder - bOrder
+    })
 }
 
 export function DndProvider({ children }: DndProviderProps) {
@@ -148,16 +164,7 @@ export function DndProvider({ children }: DndProviderProps) {
       const isTopZone = overData.position === 'top'
 
       // Get all root-level items
-      const rootItems = Array.from(items.values())
-        .filter(i => {
-          if (i.meta.type !== 'project' && i.meta.type !== 'folder') return false
-          return path.dirname(path.dirname(i.path)) === vaultPath
-        })
-        .sort((a, b) => {
-          const aOrder = (a.meta as any).sort_order ?? Infinity
-          const bOrder = (b.meta as any).sort_order ?? Infinity
-          return aOrder - bOrder
-        })
+      const rootItems = getRootLevelItems(items, vaultPath!)
 
       const insertIndex = isTopZone ? 0 : rootItems.length
 
@@ -214,16 +221,7 @@ export function DndProvider({ children }: DndProviderProps) {
           const draggedIsInFolder = draggedParent !== vaultPath
 
           // Get all root-level items for reordering
-          const rootItems = Array.from(items.values())
-            .filter(i => {
-              if (i.meta.type !== 'project' && i.meta.type !== 'folder') return false
-              return path.dirname(path.dirname(i.path)) === vaultPath
-            })
-            .sort((a, b) => {
-              const aOrder = (a.meta as any).sort_order ?? Infinity
-              const bOrder = (b.meta as any).sort_order ?? Infinity
-              return aOrder - bOrder
-            })
+          const rootItems = getRootLevelItems(items, vaultPath!)
 
           // Find target index
           const targetIndex = rootItems.findIndex(s => path.dirname(s.path) === targetNode.path)
@@ -236,16 +234,7 @@ export function DndProvider({ children }: DndProviderProps) {
             const insertIndex = position === 'before' ? targetIndex : targetIndex + 1
 
             // Re-fetch and reorder (the moved item is now at root)
-            const updatedRootItems = Array.from(items.values())
-              .filter(i => {
-                if (i.meta.type !== 'project' && i.meta.type !== 'folder') return false
-                return path.dirname(path.dirname(i.path)) === vaultPath
-              })
-              .sort((a, b) => {
-                const aOrder = (a.meta as any).sort_order ?? Infinity
-                const bOrder = (b.meta as any).sort_order ?? Infinity
-                return aOrder - bOrder
-              })
+            const updatedRootItems = getRootLevelItems(items, vaultPath!)
 
             // Update sort orders
             for (let i = 0; i < updatedRootItems.length; i++) {
