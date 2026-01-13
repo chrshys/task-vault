@@ -3754,6 +3754,9 @@ async function createFile(type, folder, title) {
 async function deleteFile(filePath) {
   await fs.unlink(filePath);
 }
+async function deleteDirectory(dirPath) {
+  await fs.rm(dirPath, { recursive: true, force: true });
+}
 async function moveFile(from, to) {
   await fs.rename(from, to);
 }
@@ -3821,6 +3824,9 @@ function registerIpcHandlers() {
   });
   ipcMain.handle("file:delete", async (_event, filePath) => {
     await deleteFile(filePath);
+  });
+  ipcMain.handle("directory:delete", async (_event, dirPath) => {
+    await deleteDirectory(dirPath);
   });
   ipcMain.handle("file:move", async (_event, { from, to }) => {
     await moveFile(from, to);

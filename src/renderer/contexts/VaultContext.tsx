@@ -366,12 +366,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         itemsToAdd.push(updatedItem)
       }
 
-      // Delete old project marker
+      // Delete old project marker and directory
       await deleteItem(project.path)
+      await window.api.deleteDirectory(projectDir)
     }
 
-    // Delete the folder
+    // Delete the folder marker and directory
     await deleteItem(folderItem.path)
+    await window.api.deleteDirectory(folderPath)
 
     // Update state immediately for responsive UI
     setItems(prev => {
@@ -408,6 +410,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     // Delete the project item itself
     await deleteItem(projectItem.path)
+
+    // Delete the project directory from file system
+    await window.api.deleteDirectory(projectPath)
 
     // Update state immediately for responsive UI
     setItems(prev => {
@@ -461,8 +466,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       itemsToAdd.push(updatedItem)
     }
 
-    // Delete old project marker
+    // Delete old project marker and directory
     await deleteItem(projectItem.path)
+    await window.api.deleteDirectory(projectPath)
 
     // Update state immediately for responsive UI
     setItems(prev => {

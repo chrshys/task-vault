@@ -74,6 +74,10 @@ export function registerIpcHandlers(): void {
     await fileService.deleteFile(filePath)
   })
 
+  ipcMain.handle('directory:delete', async (_event, dirPath: string) => {
+    await fileService.deleteDirectory(dirPath)
+  })
+
   ipcMain.handle('file:move', async (_event, { from, to }: { from: string; to: string }) => {
     await fileService.moveFile(from, to)
   })

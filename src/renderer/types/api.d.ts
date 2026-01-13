@@ -5,6 +5,7 @@ export interface API {
   writeFile: (path: string, data: VaultItem) => Promise<void>
   createFile: (type: string, folder: string, title: string) => Promise<VaultItem>
   deleteFile: (path: string) => Promise<void>
+  deleteDirectory: (path: string) => Promise<void>
   moveFile: (from: string, to: string) => Promise<void>
   selectVaultFolder: () => Promise<string | null>
   initializeVault: (path: string) => Promise<VaultItem[]>

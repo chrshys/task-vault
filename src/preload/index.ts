@@ -6,6 +6,7 @@ export const api = {
   createFile: (type: string, folder: string, title: string) =>
     ipcRenderer.invoke('file:create', { type, folder, title }),
   deleteFile: (path: string) => ipcRenderer.invoke('file:delete', path),
+  deleteDirectory: (path: string) => ipcRenderer.invoke('directory:delete', path),
   moveFile: (from: string, to: string) => ipcRenderer.invoke('file:move', { from, to }),
   selectVaultFolder: () => ipcRenderer.invoke('vault:select'),
   initializeVault: (path: string) => ipcRenderer.invoke('vault:init', path),

@@ -171,6 +171,11 @@ export async function deleteFile(filePath: string): Promise<void> {
   await fs.unlink(filePath)
 }
 
+export async function deleteDirectory(dirPath: string): Promise<void> {
+  // Remove directory and all contents recursively
+  await fs.rm(dirPath, { recursive: true, force: true })
+}
+
 export async function moveFile(from: string, to: string): Promise<void> {
   await fs.rename(from, to)
 }

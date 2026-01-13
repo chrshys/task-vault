@@ -29,6 +29,7 @@ var api = {
   writeFile: (path, data) => import_electron.ipcRenderer.invoke("file:write", { path, data }),
   createFile: (type, folder, title) => import_electron.ipcRenderer.invoke("file:create", { type, folder, title }),
   deleteFile: (path) => import_electron.ipcRenderer.invoke("file:delete", path),
+  deleteDirectory: (path) => import_electron.ipcRenderer.invoke("directory:delete", path),
   moveFile: (from, to) => import_electron.ipcRenderer.invoke("file:move", { from, to }),
   selectVaultFolder: () => import_electron.ipcRenderer.invoke("vault:select"),
   initializeVault: (path) => import_electron.ipcRenderer.invoke("vault:init", path),
