@@ -95,13 +95,20 @@ function AppContent() {
   )
 }
 
+function AppWithUI() {
+  const { vaultPath } = useVault()
+  return (
+    <UIProvider vaultPath={vaultPath}>
+      <AppContent />
+    </UIProvider>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <VaultProvider>
-        <UIProvider>
-          <AppContent />
-        </UIProvider>
+        <AppWithUI />
       </VaultProvider>
     </ThemeProvider>
   )
