@@ -56,6 +56,26 @@ function getRootLevelItems(items: Map<string, VaultItem>, vaultPath: string): Va
     })
 }
 
+/**
+ * Get sibling items of the same type within the same parent directory, sorted by sort_order
+ */
+function getSiblingItems(
+  items: Map<string, VaultItem>,
+  parentPath: string,
+  itemType: 'folder' | 'project'
+): VaultItem[] {
+  return Array.from(items.values())
+    .filter(i => {
+      if (i.meta.type !== itemType) return false
+      return path.dirname(path.dirname(i.path)) === parentPath
+    })
+    .sort((a, b) => {
+      const aOrder = (a.meta as FolderMeta | ProjectMeta).sort_order ?? Infinity
+      const bOrder = (b.meta as FolderMeta | ProjectMeta).sort_order ?? Infinity
+      return aOrder - bOrder
+    })
+}
+
 export function DndProvider({ children }: DndProviderProps) {
   const { items, updateItem, moveProject, updateSortOrder, vaultPath } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
@@ -272,16 +292,7 @@ export function DndProvider({ children }: DndProviderProps) {
 
         // Project dropped within a folder (reorder within folder)
         if (draggedParent === targetParent && draggedNode.type === targetNode.type) {
-          const siblings = Array.from(items.values())
-            .filter(i => {
-              if (i.meta.type !== draggedNode.type) return false
-              return path.dirname(path.dirname(i.path)) === draggedParent
-            })
-            .sort((a, b) => {
-              const aOrder = (a.meta as any).sort_order ?? Infinity
-              const bOrder = (b.meta as any).sort_order ?? Infinity
-              return aOrder - bOrder
-            })
+          const siblings = getSiblingItems(items, draggedParent, draggedNode.type as 'folder' | 'project')
 
           const oldIndex = siblings.findIndex(s => path.dirname(s.path) === draggedNode.path)
           const targetIndex = siblings.findIndex(s => path.dirname(s.path) === targetNode.path)
