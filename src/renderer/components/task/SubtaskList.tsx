@@ -43,7 +43,7 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
               onChange={() => handleToggle(subtask)}
               className="w-4 h-4 rounded border-gray-300"
             />
-            <span className={`text-sm ${subtask.meta.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-200'}`}>
+            <span className={`text-sm ${subtask.meta.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
               {subtask.title}
             </span>
           </div>
@@ -57,11 +57,11 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
           onChange={(e) => setNewSubtask(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           placeholder="Add subtask..."
-          className="flex-1 px-2 py-1 text-sm border border-gray-600 rounded bg-gray-700 text-gray-200 placeholder:text-gray-500"
+          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500"
         />
         <button
           onClick={handleAdd}
-          className="px-2 py-1 text-sm bg-gray-700 rounded hover:bg-gray-600 text-gray-200"
+          className="px-2 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
         >
           Add
         </button>
