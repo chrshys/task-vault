@@ -4,9 +4,20 @@ import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, Folde
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { TreeNode } from '@shared/types'
 
-function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
+function TreeItem({
+  node,
+  depth = 0,
+  onContextMenu
+}: {
+  node: TreeNode
+  depth?: number
+  onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
+}) {
   const { selectedView, selectedPath, setSelectedView } = useUI()
   const { setNodeRef, isOver } = useDroppable({
     id: node.path,
@@ -24,6 +35,7 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
       <button
         ref={setNodeRef}
         onClick={handleClick}
+        onContextMenu={(e) => onContextMenu?.(e, node)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
           isOver
             ? 'bg-blue-600/20 ring-1 ring-blue-500'
@@ -44,7 +56,7 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
       {node.children.length > 0 && (
         <div>
           {node.children.map((child) => (
-            <TreeItem key={child.id} node={child} depth={depth + 1} />
+            <TreeItem key={child.id} node={child} depth={depth + 1} onContextMenu={onContextMenu} />
           ))}
         </div>
       )}
@@ -103,7 +115,7 @@ function PopoverTreeItem({
 }
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject } = useVault()
+  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createFolder, createProject, ungroupFolder, deleteProject } = useVault()
   const { selectedView, setSelectedView, sidebarCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -113,9 +125,11 @@ export function Sidebar() {
   const [showListsPopover, setShowListsPopover] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
   const listsPopoverRef = useRef<HTMLDivElement>(null)
   const addMenuRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
+  const contextMenu = useContextMenu<TreeNode>()
 
   const todayCount = getTodayTasks().length
   const next7Count = getNext7DaysTasks().length
@@ -176,6 +190,18 @@ export function Sidebar() {
       setNewProjectName('')
       setShowNewProject(false)
     }
+  }
+
+  const handleUngroup = async () => {
+    if (!contextMenu.data || contextMenu.data.type !== 'folder') return
+    await ungroupFolder(contextMenu.data.path)
+    contextMenu.close()
+  }
+
+  const handleDeleteProject = async () => {
+    if (!deleteConfirm.node || deleteConfirm.node.type !== 'project') return
+    await deleteProject(deleteConfirm.node.path)
+    setDeleteConfirm({open: false, node: null})
   }
 
   // Collapsed sidebar view - icon only
@@ -473,7 +499,7 @@ export function Sidebar() {
           </div>
           <div className="space-y-0.5">
             {tree.map((node) => (
-              <TreeItem key={node.id} node={node} />
+              <TreeItem key={node.id} node={node} onContextMenu={(e, n) => contextMenu.open(e, n)} />
             ))}
           </div>
         </div>
@@ -534,6 +560,30 @@ export function Sidebar() {
           )}
         </div>
       </div>
+
+      {contextMenu.isOpen && contextMenu.data && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
+          {contextMenu.data.type === 'folder' && (
+            <ContextMenuItem onClick={handleUngroup}>Ungroup</ContextMenuItem>
+          )}
+          {contextMenu.data.type === 'project' && (
+            <ContextMenuItem variant="danger" onClick={() => {
+              setDeleteConfirm({open: true, node: contextMenu.data})
+              contextMenu.close()
+            }}>Delete</ContextMenuItem>
+          )}
+        </ContextMenu>
+      )}
+
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Delete Project"
+        message={`Delete project "${deleteConfirm.node?.name}" and all its contents?`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteProject}
+        onCancel={() => setDeleteConfirm({open: false, node: null})}
+      />
     </div>
   )
 }
