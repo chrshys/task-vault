@@ -103,6 +103,48 @@ body {
   background-color: #4b5563;
 }
 
+/* React Datepicker light mode styles */
+.react-datepicker {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.react-datepicker__header {
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: #111827;
+}
+
+.react-datepicker__day:hover {
+  background-color: #e5e7eb;
+}
+
+.react-datepicker__day--selected {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.react-datepicker__time-container {
+  border-color: #e5e7eb;
+}
+
+.react-datepicker__time {
+  background-color: #ffffff;
+}
+
+.react-datepicker__time-list-item {
+  color: #111827;
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: #e5e7eb;
+}
+
 /* TipTap editor styles */
 .ProseMirror {
   outline: none;
