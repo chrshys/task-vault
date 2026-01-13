@@ -72,7 +72,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
       {...listeners}
       {...attributes}
       className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer ${
-        isSelected ? 'bg-gray-700' : 'hover:bg-gray-800'
+        isSelected ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
       } ${isDragging ? 'opacity-50' : ''}`}
       onClick={() => setSelectedTaskId(item.id)}
       onContextMenu={(e) => contextMenu.open(e, item)}
@@ -86,7 +86,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
           className={`w-5 h-5 rounded border flex items-center justify-center ${
             isCompleted
               ? 'bg-blue-600 border-blue-600 text-white'
-              : 'border-gray-500 hover:border-blue-500'
+              : 'border-gray-400 dark:border-gray-500 hover:border-blue-500'
           }`}
         >
           {isCompleted && <span className="text-xs">✓</span>}
@@ -101,11 +101,11 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className={`text-sm truncate ${isCompleted ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+          <p className={`text-sm truncate ${isCompleted ? 'line-through text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
             {item.title}
           </p>
           {subtaskCount > 0 && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {completedSubtaskCount}/{subtaskCount}
             </span>
           )}
