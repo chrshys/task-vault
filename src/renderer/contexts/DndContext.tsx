@@ -8,6 +8,7 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { useState, type ReactNode } from 'react'
 import { useVault } from './VaultContext'
 import type { VaultItem, TaskMeta, TreeNode } from '@shared/types'
@@ -18,7 +19,7 @@ interface DndProviderProps {
 }
 
 export function DndProvider({ children }: DndProviderProps) {
-  const { items, updateItem, moveProject, createFolderWithProjects } = useVault()
+  const { items, updateItem, moveProject, createFolderWithProjects, updateSortOrder } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
   const [pendingGroup, setPendingGroup] = useState<{
     draggedPath: string
@@ -53,6 +54,35 @@ export function DndProvider({ children }: DndProviderProps) {
     if (activeData?.type === 'sidebar-item' && overData?.type === 'sidebar-item') {
       const draggedNode = activeData.node as TreeNode
       const targetNode = overData.node as TreeNode
+
+      const draggedParent = path.dirname(draggedNode.path)
+      const targetParent = path.dirname(targetNode.path)
+
+      // Same parent and same type = reorder
+      if (draggedParent === targetParent && draggedNode.type === targetNode.type) {
+        // Find all siblings at this level
+        const siblings = Array.from(items.values())
+          .filter(i => {
+            if (i.meta.type !== draggedNode.type) return false
+            return path.dirname(path.dirname(i.path)) === draggedParent
+          })
+          .sort((a, b) => {
+            const aOrder = (a.meta as any).sort_order ?? Infinity
+            const bOrder = (b.meta as any).sort_order ?? Infinity
+            return aOrder - bOrder
+          })
+
+        const oldIndex = siblings.findIndex(s => path.dirname(s.path) === draggedNode.path)
+        const newIndex = siblings.findIndex(s => path.dirname(s.path) === targetNode.path)
+
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const reordered = arrayMove(siblings, oldIndex, newIndex)
+          for (let i = 0; i < reordered.length; i++) {
+            await updateSortOrder(path.dirname(reordered[i].path), i)
+          }
+        }
+        return
+      }
 
       // Project dropped on folder = move into folder
       if (draggedNode.type === 'project' && targetNode.type === 'folder') {

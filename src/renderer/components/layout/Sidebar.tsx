@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useDroppable, useDraggable } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CalendarDays, CalendarRange, Inbox, Folder, ListTodo, List, Plus, FolderPlus, Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
@@ -20,35 +20,25 @@ function TreeItem({
   onContextMenu?: (e: React.MouseEvent, node: TreeNode) => void
 }) {
   const { selectedView, selectedPath, setSelectedView } = useUI()
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-    id: `drop-${node.path}`,
-    data: { type: 'sidebar-item', node },
-  })
-
   const {
     attributes,
     listeners,
-    setNodeRef: setDraggableRef,
+    setNodeRef,
     transform,
+    transition,
     isDragging,
-  } = useDraggable({
-    id: `drag-${node.path}`,
+    isOver,
+  } = useSortable({
+    id: node.path,  // Use plain path as ID for sortable
     data: { type: 'sidebar-item', node },
   })
 
-  // Combine refs from useDroppable and useDraggable
-  const setNodeRef = (el: HTMLButtonElement | null) => {
-    setDroppableRef(el)
-    setDraggableRef(el)
+  // Transform style for dragging with transition
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
   }
-
-  // Transform style for dragging
-  const dragStyle = transform
-    ? {
-        transform: CSS.Transform.toString(transform),
-        opacity: isDragging ? 0.5 : 1,
-      }
-    : undefined
 
   // Visual feedback for drop targets
   const getDropHighlight = () => {
@@ -81,7 +71,7 @@ function TreeItem({
               ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
         }`}
-        style={{ ...dragStyle, paddingLeft: `${12 + depth * 16}px` }}
+        style={{ ...style, paddingLeft: `${12 + depth * 16}px` }}
         {...attributes}
         {...listeners}
       >
@@ -94,11 +84,11 @@ function TreeItem({
         )}
       </button>
       {node.children.length > 0 && (
-        <div>
+        <SortableContext items={node.children.map(c => c.path)} strategy={verticalListSortingStrategy}>
           {node.children.map((child) => (
             <TreeItem key={child.id} node={child} depth={depth + 1} onContextMenu={onContextMenu} />
           ))}
-        </div>
+        </SortableContext>
       )}
     </div>
   )
@@ -538,9 +528,11 @@ export function Sidebar() {
             </div>
           </div>
           <div className="space-y-0.5">
-            {tree.map((node) => (
-              <TreeItem key={node.id} node={node} onContextMenu={(e, n) => contextMenu.open(e, n)} />
-            ))}
+            <SortableContext items={tree.map(n => n.path)} strategy={verticalListSortingStrategy}>
+              {tree.map((node) => (
+                <TreeItem key={node.id} node={node} onContextMenu={(e, n) => contextMenu.open(e, n)} />
+              ))}
+            </SortableContext>
           </div>
         </div>
       </div>
