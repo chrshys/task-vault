@@ -11,7 +11,8 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { useVault } from './VaultContext'
-import type { VaultItem } from '@shared/types'
+import type { VaultItem, TreeNode } from '@shared/types'
+import path from 'path-browserify'
 
 interface TreeDndContextValue {
   activeId: string | null
@@ -33,7 +34,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items } = useVault()
+  const { items, updateItem } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -49,11 +50,43 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
     if (item) setActiveItem(item)
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null)
-    setActiveItem(null)
-    // Tree-specific handling will be added in later tasks
-    void event
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    try {
+      if (!over) return
+
+      const activeId = String(active.id)
+      const overData = over.data.current as { node?: TreeNode } | undefined
+
+      // Check if this is a task being dropped on a sidebar project
+      const draggedItem = items.get(activeId)
+      if (!draggedItem) return
+
+      // Only handle task/note items (not folders/projects)
+      if (draggedItem.meta.type === 'folder' || draggedItem.meta.type === 'project') return
+
+      // Check if target is a sidebar project (has node property with type 'project')
+      if (overData?.node?.type === 'project') {
+        const targetPath = overData.node.path
+        const filename = path.basename(draggedItem.path)
+        const newPath = path.join(targetPath, filename)
+
+        if (newPath !== draggedItem.path) {
+          await updateItem({
+            ...draggedItem,
+            path: newPath,
+            meta: { ...draggedItem.meta, modified: new Date().toISOString() } as typeof draggedItem.meta,
+          })
+        }
+        return
+      }
+
+      // Task reordering is handled by DndContext (old one, for now)
+    } finally {
+      setActiveId(null)
+      setActiveItem(null)
+    }
   }
 
   const handleDragCancel = () => {
