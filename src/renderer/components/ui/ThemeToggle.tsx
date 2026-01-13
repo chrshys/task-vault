@@ -4,10 +4,10 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-gray-800 rounded-lg">
+    <div className="flex items-center gap-1 p-1 bg-gray-200 dark:bg-gray-800 rounded-lg">
       <button
         onClick={() => setTheme('light')}
-        className={`p-1.5 rounded text-sm ${theme === 'light' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+        className={`p-1.5 rounded text-sm ${theme === 'light' ? 'bg-white dark:bg-gray-700' : 'hover:bg-gray-300 dark:hover:bg-gray-700'}`}
         title="Light mode"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -16,7 +16,7 @@ export function ThemeToggle() {
       </button>
       <button
         onClick={() => setTheme('dark')}
-        className={`p-1.5 rounded text-sm ${theme === 'dark' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+        className={`p-1.5 rounded text-sm ${theme === 'dark' ? 'bg-white dark:bg-gray-700' : 'hover:bg-gray-300 dark:hover:bg-gray-700'}`}
         title="Dark mode"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -25,7 +25,7 @@ export function ThemeToggle() {
       </button>
       <button
         onClick={() => setTheme('system')}
-        className={`p-1.5 rounded text-sm ${theme === 'system' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+        className={`p-1.5 rounded text-sm ${theme === 'system' ? 'bg-white dark:bg-gray-700' : 'hover:bg-gray-300 dark:hover:bg-gray-700'}`}
         title="System preference"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
