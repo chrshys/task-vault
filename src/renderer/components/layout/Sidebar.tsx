@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import type { TreeNode } from '@shared/types'
 
 function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
@@ -110,7 +111,10 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="p-2 border-t border-gray-700">
+      <div className="p-2 border-t border-gray-700 space-y-2">
+        <div className="flex justify-center">
+          <ThemeToggle />
+        </div>
         <button className="w-full px-2 py-1.5 text-sm text-gray-500 hover:text-gray-300 text-left">
           + New Folder
         </button>
