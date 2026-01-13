@@ -23,7 +23,7 @@ export function TitleBar() {
 
   return (
     <div
-      className="h-10 bg-gray-900 flex items-center justify-between border-b border-gray-800 shrink-0 px-4"
+      className="h-10 bg-white dark:bg-gray-900 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 shrink-0 px-4"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Traffic light spacer on left */}
@@ -38,8 +38,8 @@ export function TitleBar() {
           disabled={!canUndo}
           className={`px-2 py-1 text-xs rounded ${
             canUndo
-              ? 'text-gray-300 hover:bg-gray-700'
-              : 'text-gray-600 cursor-not-allowed'
+              ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
           }`}
           title="Undo (Cmd+Z)"
         >
@@ -50,8 +50,8 @@ export function TitleBar() {
           disabled={!canRedo}
           className={`px-2 py-1 text-xs rounded ${
             canRedo
-              ? 'text-gray-300 hover:bg-gray-700'
-              : 'text-gray-600 cursor-not-allowed'
+              ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
           }`}
           title="Redo (Cmd+Shift+Z)"
         >
