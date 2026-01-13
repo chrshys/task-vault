@@ -73,7 +73,7 @@ export function TaskDetail() {
 
   if (!localItem) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-500 bg-gray-800">
+      <div className="h-full flex items-center justify-center text-gray-500 bg-gray-50 dark:bg-gray-800">
         Select a task to view details
       </div>
     )
@@ -85,17 +85,17 @@ export function TaskDetail() {
   const repeat = taskMeta?.repeat
 
   return (
-    <div className="h-full flex flex-col bg-gray-800">
-      <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <button
           onClick={() => setSelectedTaskId(null)}
-          className="text-sm text-gray-400 hover:text-gray-200"
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
         >
           ← Back
         </button>
         <button
           onClick={handleDelete}
-          className="text-sm text-red-400 hover:text-red-300"
+          className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
         >
           Delete
         </button>
@@ -106,7 +106,7 @@ export function TaskDetail() {
           type="text"
           value={localItem.title}
           onChange={(e) => handleTitleChange(e.target.value)}
-          className="w-full text-xl font-semibold bg-transparent border-none outline-none text-white mb-4"
+          className="w-full text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white mb-4"
           placeholder="Task title"
         />
 
