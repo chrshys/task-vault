@@ -98,6 +98,53 @@ export function DndProvider({ children }: DndProviderProps) {
     })
   )
 
+  const handleRootDropZoneDrop = async (
+    activeData: { type: string; node: TreeNode },
+    overData: { type: string; position: 'top' | 'bottom' }
+  ): Promise<boolean> => {
+    const draggedNode = activeData.node
+    if (draggedNode.type !== 'project') return false
+
+    const draggedParent = path.dirname(draggedNode.path)
+    const draggedIsInFolder = vaultPath && draggedParent !== vaultPath
+    const isTopZone = overData.position === 'top'
+
+    const rootItems = getRootLevelItems(items, vaultPath!)
+    const insertIndex = isTopZone ? 0 : rootItems.length
+
+    if (draggedIsInFolder) {
+      // Move project out of folder to root
+      await moveProject(draggedNode.path, vaultPath!)
+    }
+
+    // Update sort orders to place item at correct position
+    const itemsToReorder = draggedIsInFolder ? [...rootItems] : rootItems
+
+    if (!draggedIsInFolder) {
+      // For items already at root, reorder
+      const currentIndex = itemsToReorder.findIndex(s => getItemDirPath(s) === draggedNode.path)
+      if (currentIndex !== -1) {
+        const newIndex = isTopZone ? 0 : itemsToReorder.length - 1
+        if (currentIndex !== newIndex) {
+          const reordered = arrayMove(itemsToReorder, currentIndex, newIndex)
+          for (let i = 0; i < reordered.length; i++) {
+            await updateSortOrder(getItemDirPath(reordered[i]), i)
+          }
+        }
+      }
+    } else {
+      // For items moved from folder, set sort order after move
+      for (let i = 0; i < rootItems.length; i++) {
+        const itemPath = getItemDirPath(rootItems[i])
+        const newOrder = i >= insertIndex ? i + 1 : i
+        await updateSortOrder(itemPath, newOrder)
+      }
+      await updateSortOrder(draggedNode.path, insertIndex)
+    }
+
+    return true
+  }
+
   const handleDragStart = (event: { active: { id: string | number } }) => {
     const item = items.get(String(event.active.id))
     if (item) setActiveItem(item)
@@ -184,51 +231,10 @@ export function DndProvider({ children }: DndProviderProps) {
 
     // Handle drops on root drop zones (top/bottom of list)
     if (overData?.type === 'root-drop-zone' && activeData?.type === 'sidebar-item') {
-      const draggedNode = activeData.node as TreeNode
-      if (draggedNode.type !== 'project') return
-
-      const draggedParent = path.dirname(draggedNode.path)
-      const draggedIsInFolder = vaultPath && draggedParent !== vaultPath
-      const isTopZone = overData.position === 'top'
-
-      // Get all root-level items
-      const rootItems = getRootLevelItems(items, vaultPath!)
-
-      const insertIndex = isTopZone ? 0 : rootItems.length
-
-      if (draggedIsInFolder) {
-        // Move project out of folder to root
-        await moveProject(draggedNode.path, vaultPath!)
-      }
-
-      // Update sort orders to place item at correct position
-      const itemsToReorder = draggedIsInFolder
-        ? [...rootItems] // Will include the newly moved item after state update
-        : rootItems
-
-      // For items already at root, reorder
-      if (!draggedIsInFolder) {
-        const currentIndex = itemsToReorder.findIndex(s => getItemDirPath(s) === draggedNode.path)
-        if (currentIndex !== -1) {
-          const newIndex = isTopZone ? 0 : itemsToReorder.length - 1
-          if (currentIndex !== newIndex) {
-            const reordered = arrayMove(itemsToReorder, currentIndex, newIndex)
-            for (let i = 0; i < reordered.length; i++) {
-              await updateSortOrder(getItemDirPath(reordered[i]), i)
-            }
-          }
-        }
-      } else {
-        // For items moved from folder, set sort order after move completes
-        // The item is now at root, update all sort orders
-        for (let i = 0; i < rootItems.length; i++) {
-          const itemPath = getItemDirPath(rootItems[i])
-          const newOrder = i >= insertIndex ? i + 1 : i
-          await updateSortOrder(itemPath, newOrder)
-        }
-        // Set the moved item's order
-        await updateSortOrder(draggedNode.path, insertIndex)
-      }
+      await handleRootDropZoneDrop(
+        activeData as { type: string; node: TreeNode },
+        overData as { type: string; position: 'top' | 'bottom' }
+      )
       return
     }
 
