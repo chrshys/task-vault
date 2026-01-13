@@ -40,6 +40,10 @@ interface DndProviderProps {
   children: ReactNode
 }
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
 /**
  * Get all root-level folders and projects, sorted by sort_order
  */
@@ -84,6 +88,10 @@ function getItemDirPath(item: VaultItem): string {
   return path.dirname(item.path)
 }
 
+// ============================================================================
+// DnD Provider Component
+// ============================================================================
+
 export function DndProvider({ children }: DndProviderProps) {
   const { items, updateItem, moveProject, updateSortOrder, vaultPath } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
@@ -97,6 +105,10 @@ export function DndProvider({ children }: DndProviderProps) {
       activationConstraint: { delay: 250, tolerance: 5 },
     })
   )
+
+  // --------------------------------------------------------------------------
+  // Drag Handlers
+  // --------------------------------------------------------------------------
 
   const handleRootDropZoneDrop = async (
     activeData: { type: string; node: TreeNode },
@@ -233,6 +245,10 @@ export function DndProvider({ children }: DndProviderProps) {
 
     return true
   }
+
+  // --------------------------------------------------------------------------
+  // Main Event Handlers
+  // --------------------------------------------------------------------------
 
   const handleDragStart = (event: { active: { id: string | number } }) => {
     const item = items.get(String(event.active.id))
