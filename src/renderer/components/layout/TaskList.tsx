@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { TaskRow } from '../task/TaskRow'
+import { NoteRow } from '../task/NoteRow'
 import { EmptyState } from '../ui/EmptyState'
-import type { VaultItem } from '@shared/types'
+import type { VaultItem, VaultNote } from '@shared/types'
 import path from 'path-browserify'
 
 export function TaskList() {
   const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem } = useVault()
-  const { selectedView, selectedPath } = useUI()
+  const { selectedView, selectedPath, selectedTaskId, setSelectedTaskId } = useUI()
   const [newTaskTitle, setNewTaskTitle] = useState('')
 
   const displayItems = useMemo(() => {
@@ -110,13 +111,34 @@ export function TaskList() {
             })}
           />
         ) : (
-          displayItems.map((item) => (
-            <TaskRow
-              key={item.id}
-              item={item}
-              onToggleComplete={handleToggleComplete}
-            />
-          ))
+          <>
+            {displayItems
+              .filter(item => item.meta.type === 'task')
+              .map((item) => (
+                <TaskRow
+                  key={item.id}
+                  item={item}
+                  onToggleComplete={handleToggleComplete}
+                />
+              ))}
+            {displayItems.filter(item => item.meta.type === 'note').length > 0 && (
+              <div className="mt-4">
+                <h3 className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">
+                  Notes
+                </h3>
+                {displayItems
+                  .filter(item => item.meta.type === 'note')
+                  .map((item) => (
+                    <NoteRow
+                      key={item.id}
+                      note={item as VaultNote}
+                      isSelected={selectedTaskId === item.id}
+                      onSelect={() => setSelectedTaskId(item.id)}
+                    />
+                  ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
