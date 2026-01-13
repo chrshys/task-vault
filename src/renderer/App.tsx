@@ -9,11 +9,13 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TaskList } from './components/layout/TaskList'
 import { TaskDetail } from './components/layout/TaskDetail'
 import { NoteDetail } from './components/layout/NoteDetail'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { AppSettings, VaultNote } from '@shared/types'
 
 function MainLayout() {
   const { selectedTaskId } = useUI()
   const { items } = useVault()
+  useKeyboardShortcuts()
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
   const isNote = selectedItem?.meta.type === 'note'
