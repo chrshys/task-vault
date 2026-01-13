@@ -9,7 +9,10 @@
     "build": "tsc && vite build && electron-builder",
     "build:main": "node scripts/build-main.js",
     "electron:dev": "npm run build:main && concurrently \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
