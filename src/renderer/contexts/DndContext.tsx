@@ -318,7 +318,7 @@ export function DndProvider({ children }: DndProviderProps) {
     const activeData = active.data.current
     const overData = over.data.current
 
-    // Handle drops on root drop zones (top/bottom of list)
+    // Handle root drop zone drops (top/bottom of list)
     if (overData?.type === 'root-drop-zone' && activeData?.type === 'sidebar-item') {
       await handleRootDropZoneDrop(
         activeData as { type: string; node: TreeNode },
@@ -327,20 +327,27 @@ export function DndProvider({ children }: DndProviderProps) {
       return
     }
 
-    // Handle sidebar item drags
+    // Handle sidebar item to sidebar item drags
     if (activeData?.type === 'sidebar-item' && overData?.type === 'sidebar-item') {
       const draggedNode = activeData.node as TreeNode
       const targetNode = overData.node as TreeNode
 
-      // If we have a position indicator, this is a positional drop (before/after)
+      // Try reordering first (same parent, same type, has position indicator)
       if (currentDropTarget) {
-        // Project dropped at root level (target is at root)
-        const movedToRoot = await handleProjectMoveToRoot(draggedNode, targetNode, currentDropTarget.position)
-        if (movedToRoot) return
-
-        // Project dropped within a folder (reorder within folder)
-        const reordered = await handleSidebarReorder(draggedNode, targetNode, currentDropTarget.position)
+        const reordered = await handleSidebarReorder(
+          draggedNode,
+          targetNode,
+          currentDropTarget.position
+        )
         if (reordered) return
+
+        // Try moving project to root level
+        const movedToRoot = await handleProjectMoveToRoot(
+          draggedNode,
+          targetNode,
+          currentDropTarget.position
+        )
+        if (movedToRoot) return
       }
 
       // No position indicator - check for folder drop (move into folder)
@@ -349,11 +356,11 @@ export function DndProvider({ children }: DndProviderProps) {
         return
       }
 
-      // Folder on folder = not allowed
+      // Folder on folder or other invalid combinations - do nothing
       return
     }
 
-    // Existing task/note drag handling
+    // Handle task/note drags to projects
     const draggedItem = items.get(String(active.id))
     const targetPath = String(over.id)
 
@@ -361,13 +368,12 @@ export function DndProvider({ children }: DndProviderProps) {
       return
     }
 
-    // Check if target is a folder (not a project) - tasks can only go in projects
+    // Check if target is a folder - tasks can only go in projects
     const targetItem = Array.from(items.values()).find(i =>
       (i.meta.type === 'folder' || i.meta.type === 'project') &&
       path.dirname(i.path) === targetPath
     )
     if (targetItem?.meta.type === 'folder') {
-      // Don't allow dropping tasks directly into folders
       return
     }
 
