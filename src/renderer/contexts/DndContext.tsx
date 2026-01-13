@@ -76,6 +76,14 @@ function getSiblingItems(
     })
 }
 
+/**
+ * Get the directory path for a folder/project item
+ * (Items store path to .folder.md/.project.md, this returns the containing directory)
+ */
+function getItemDirPath(item: VaultItem): string {
+  return path.dirname(item.path)
+}
+
 export function DndProvider({ children }: DndProviderProps) {
   const { items, updateItem, moveProject, updateSortOrder, vaultPath } = useVault()
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
@@ -200,13 +208,13 @@ export function DndProvider({ children }: DndProviderProps) {
 
       // For items already at root, reorder
       if (!draggedIsInFolder) {
-        const currentIndex = itemsToReorder.findIndex(s => path.dirname(s.path) === draggedNode.path)
+        const currentIndex = itemsToReorder.findIndex(s => getItemDirPath(s) === draggedNode.path)
         if (currentIndex !== -1) {
           const newIndex = isTopZone ? 0 : itemsToReorder.length - 1
           if (currentIndex !== newIndex) {
             const reordered = arrayMove(itemsToReorder, currentIndex, newIndex)
             for (let i = 0; i < reordered.length; i++) {
-              await updateSortOrder(path.dirname(reordered[i].path), i)
+              await updateSortOrder(getItemDirPath(reordered[i]), i)
             }
           }
         }
@@ -214,7 +222,7 @@ export function DndProvider({ children }: DndProviderProps) {
         // For items moved from folder, set sort order after move completes
         // The item is now at root, update all sort orders
         for (let i = 0; i < rootItems.length; i++) {
-          const itemPath = path.dirname(rootItems[i].path)
+          const itemPath = getItemDirPath(rootItems[i])
           const newOrder = i >= insertIndex ? i + 1 : i
           await updateSortOrder(itemPath, newOrder)
         }
@@ -244,7 +252,7 @@ export function DndProvider({ children }: DndProviderProps) {
           const rootItems = getRootLevelItems(items, vaultPath!)
 
           // Find target index
-          const targetIndex = rootItems.findIndex(s => path.dirname(s.path) === targetNode.path)
+          const targetIndex = rootItems.findIndex(s => getItemDirPath(s) === targetNode.path)
 
           if (draggedIsInFolder) {
             // Move project out of folder to root, then position it
@@ -258,7 +266,7 @@ export function DndProvider({ children }: DndProviderProps) {
 
             // Update sort orders
             for (let i = 0; i < updatedRootItems.length; i++) {
-              const itemDirPath = path.dirname(updatedRootItems[i].path)
+              const itemDirPath = getItemDirPath(updatedRootItems[i])
               const isMovedItem = path.basename(itemDirPath) === path.basename(draggedNode.path)
               let newOrder: number
 
@@ -273,7 +281,7 @@ export function DndProvider({ children }: DndProviderProps) {
             }
           } else {
             // Same level reorder with position awareness
-            const oldIndex = rootItems.findIndex(s => path.dirname(s.path) === draggedNode.path)
+            const oldIndex = rootItems.findIndex(s => getItemDirPath(s) === draggedNode.path)
 
             if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
               // Calculate new index based on position
@@ -283,7 +291,7 @@ export function DndProvider({ children }: DndProviderProps) {
 
               const reordered = arrayMove(rootItems, oldIndex, newIndex)
               for (let i = 0; i < reordered.length; i++) {
-                await updateSortOrder(path.dirname(reordered[i].path), i)
+                await updateSortOrder(getItemDirPath(reordered[i]), i)
               }
             }
           }
@@ -294,8 +302,8 @@ export function DndProvider({ children }: DndProviderProps) {
         if (draggedParent === targetParent && draggedNode.type === targetNode.type) {
           const siblings = getSiblingItems(items, draggedParent, draggedNode.type as 'folder' | 'project')
 
-          const oldIndex = siblings.findIndex(s => path.dirname(s.path) === draggedNode.path)
-          const targetIndex = siblings.findIndex(s => path.dirname(s.path) === targetNode.path)
+          const oldIndex = siblings.findIndex(s => getItemDirPath(s) === draggedNode.path)
+          const targetIndex = siblings.findIndex(s => getItemDirPath(s) === targetNode.path)
 
           if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
             let newIndex = position === 'before' ? targetIndex : targetIndex + 1
@@ -303,7 +311,7 @@ export function DndProvider({ children }: DndProviderProps) {
 
             const reordered = arrayMove(siblings, oldIndex, newIndex)
             for (let i = 0; i < reordered.length; i++) {
-              await updateSortOrder(path.dirname(reordered[i].path), i)
+              await updateSortOrder(getItemDirPath(reordered[i]), i)
             }
           }
           return
