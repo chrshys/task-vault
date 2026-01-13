@@ -50,17 +50,17 @@ export function NoteDetail({ note }: NoteDetailProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-800">
-      <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <button
           onClick={() => setSelectedTaskId(null)}
-          className="text-sm text-gray-400 hover:text-gray-200"
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
         >
           ← Back
         </button>
         <button
           onClick={handleDelete}
-          className="text-sm text-red-400 hover:text-red-300"
+          className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
         >
           Delete
         </button>
@@ -71,7 +71,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full text-xl font-semibold bg-transparent border-none outline-none text-white mb-4"
+          className="w-full text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white mb-4"
           placeholder="Note title..."
         />
 
