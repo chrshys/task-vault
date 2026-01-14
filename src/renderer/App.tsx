@@ -6,52 +6,21 @@ import { HistoryProvider } from './contexts/HistoryContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Welcome } from './components/Welcome'
 import { TitleBar } from './components/layout/TitleBar'
-import { Sidebar } from './components/layout/Sidebar'
-import { TaskList } from './components/layout/TaskList'
-import { TaskDetail } from './components/layout/TaskDetail'
-import { NoteDetail } from './components/layout/NoteDetail'
+import { ResizablePanelLayout } from './components/layout/ResizablePanelLayout'
 import { QuickAddModal } from './components/ui/QuickAddModal'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import type { AppSettings, VaultNote } from '@shared/types'
+import type { AppSettings } from '@shared/types'
 
 function MainLayout() {
-  const { selectedTaskId, sidebarCollapsed, showQuickAdd, quickAddType, closeQuickAdd } = useUI()
-  const { items } = useVault()
+  const { showQuickAdd, quickAddType, closeQuickAdd } = useUI()
   useKeyboardShortcuts()
-
-  const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
-  const isNote = selectedItem?.meta.type === 'note'
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
       <TitleBar />
       <TreeDndProvider>
         <div className="flex-1 flex min-h-0">
-          <div
-            className={`${
-              sidebarCollapsed ? 'w-14' : 'w-64'
-            } border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-[width] duration-200`}
-          >
-            <Sidebar />
-          </div>
-          <div className="flex-1 flex min-w-0">
-            <div
-              className={`${
-                selectedTaskId ? 'w-2/5' : 'flex-1'
-              } min-w-[320px] border-r border-gray-200 dark:border-gray-700 overflow-hidden`}
-            >
-              <TaskList />
-            </div>
-            {selectedTaskId && (
-              <div className="flex-1 min-w-[360px] overflow-hidden">
-                {isNote ? (
-                  <NoteDetail note={selectedItem as VaultNote} />
-                ) : (
-                  <TaskDetail />
-                )}
-              </div>
-            )}
-          </div>
+          <ResizablePanelLayout />
         </div>
       </TreeDndProvider>
       {showQuickAdd && (
