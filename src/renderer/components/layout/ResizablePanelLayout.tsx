@@ -87,7 +87,7 @@ export function ResizablePanelLayout() {
 
   if (layoutMode === 'compact') {
     return (
-      <Group orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
+      <Group className="flex-1 w-full h-full min-h-0" orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
         <Panel
           id="taskList"
           defaultSize={selectedTaskId ? sizes.taskListPercent : 100}
@@ -114,7 +114,7 @@ export function ResizablePanelLayout() {
   }
 
   return (
-    <Group orientation="horizontal">
+    <Group className="flex-1 w-full h-full min-h-0" orientation="horizontal">
       <Panel
         id="sidebar"
         panelRef={sidebarPanelRef}
@@ -131,7 +131,7 @@ export function ResizablePanelLayout() {
         className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
       />
       <Panel id="main" minSize={mainPanelMinPercent}>
-        <Group orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
+        <Group className="w-full h-full min-h-0" orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
           <Panel
             id="taskList"
             defaultSize={selectedTaskId ? sizes.taskListPercent : 100}
