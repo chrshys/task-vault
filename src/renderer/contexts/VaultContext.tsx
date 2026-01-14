@@ -26,6 +26,10 @@ interface VaultContextValue {
   getSubtasks: (parentId: string) => VaultTask[]
   deleteProject: (projectPath: string) => Promise<void>
   updateSortOrder: (itemPath: string, newOrder: number) => Promise<void>
+  setProjectSection: (projectPath: string, sectionName: string | null) => Promise<void>
+  renameSection: (oldName: string, newName: string) => Promise<void>
+  deleteSection: (sectionName: string) => Promise<void>
+  getAllSectionNames: () => string[]
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -448,6 +452,105 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await updateItem(updatedItem)
   }, [findProjectByDirPath, updateItem, vaultPath, rebuildSections, items])
 
+  const setProjectSection = useCallback(async (projectPath: string, sectionName: string | null) => {
+    const projectItem = findProjectByDirPath(projectPath)
+    if (!projectItem || projectItem.meta.type !== 'project') return
+
+    const currentMeta = projectItem.meta as ProjectMeta
+    const updatedMeta: ProjectMeta = {
+      ...currentMeta,
+      modified: new Date().toISOString(),
+    }
+
+    // Set or remove section
+    if (sectionName) {
+      updatedMeta.section = sectionName
+    } else {
+      delete updatedMeta.section
+    }
+
+    const updatedItem: VaultItem = { ...projectItem, meta: updatedMeta }
+
+    setItems(prev => {
+      const next = new Map(prev)
+      next.set(projectItem.id, updatedItem)
+      rebuildSections(next)
+      return next
+    })
+
+    await window.api.writeFile(updatedItem.path, updatedItem)
+  }, [findProjectByDirPath, rebuildSections])
+
+  const renameSection = useCallback(async (oldName: string, newName: string) => {
+    if (!newName.trim() || oldName === newName) return
+
+    const updates: VaultItem[] = []
+
+    setItems(prev => {
+      const next = new Map(prev)
+      for (const [id, item] of prev) {
+        if (item.meta.type === 'project') {
+          const projectMeta = item.meta as ProjectMeta
+          if (projectMeta.section === oldName) {
+            const updatedItem: VaultItem = {
+              ...item,
+              meta: { ...projectMeta, section: newName, modified: new Date().toISOString() },
+            }
+            next.set(id, updatedItem)
+            updates.push(updatedItem)
+          }
+        }
+      }
+      rebuildSections(next)
+      return next
+    })
+
+    // Persist all updates
+    for (const item of updates) {
+      await window.api.writeFile(item.path, item)
+    }
+  }, [rebuildSections])
+
+  const deleteSection = useCallback(async (sectionName: string) => {
+    const updates: VaultItem[] = []
+
+    setItems(prev => {
+      const next = new Map(prev)
+      for (const [id, item] of prev) {
+        if (item.meta.type === 'project') {
+          const projectMeta = item.meta as ProjectMeta
+          if (projectMeta.section === sectionName) {
+            const { section, ...restMeta } = projectMeta
+            const updatedItem: VaultItem = {
+              ...item,
+              meta: { ...restMeta, modified: new Date().toISOString() } as ProjectMeta,
+            }
+            next.set(id, updatedItem)
+            updates.push(updatedItem)
+          }
+        }
+      }
+      rebuildSections(next)
+      return next
+    })
+
+    // Persist all updates
+    for (const item of updates) {
+      await window.api.writeFile(item.path, item)
+    }
+  }, [rebuildSections])
+
+  const getAllSectionNames = useCallback((): string[] => {
+    const names = new Set<string>()
+    for (const item of items.values()) {
+      if (item.meta.type === 'project') {
+        const section = (item.meta as ProjectMeta).section
+        if (section) names.add(section)
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  }, [items])
+
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
       setItems(prev => {
@@ -514,6 +617,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         getSubtasks,
         deleteProject,
         updateSortOrder,
+        setProjectSection,
+        renameSection,
+        deleteSection,
+        getAllSectionNames,
       }}
     >
       {children}
