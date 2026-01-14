@@ -30,6 +30,15 @@ export function NoteDetail({ note }: NoteDetailProps) {
     setLocalNote(note)
   }, [note.id])
 
+  useEffect(() => {
+    console.debug('[NoteDetail] local state', {
+      id: localNote.id,
+      title: localNote.title,
+      contentLength: localNote.content?.length ?? 0,
+      contentPreview: (localNote.content || '').slice(0, 120),
+    })
+  }, [localNote.id, localNote.title, localNote.content])
+
   // Auto-resize title textarea
   useLayoutEffect(() => {
     if (titleRef.current) {
