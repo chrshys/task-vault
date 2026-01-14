@@ -35,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, moveItem, updateSortOrder, vaultPath } = useVault()
+  const { items, moveItem, updateSortOrder, vaultPath, setProjectSection } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -59,13 +59,23 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
 
       const activeId = String(active.id)
       const overId = String(over.id)
-      const overData = over.data.current as { node?: TreeNode } | undefined
+      const overData = over.data.current as { node?: TreeNode; sectionName?: string } | undefined
 
       // Check if this is a task being dropped on a sidebar project
       const draggedItem = items.get(activeId)
       if (!draggedItem) return
 
-      // Only handle task/note items (not projects)
+      // Handle section drop (moving project to different section)
+      if (overId.startsWith('section-drop-')) {
+        const sectionName = overData?.sectionName as string | undefined
+        if (draggedItem.meta.type === 'project') {
+          const projectPath = path.dirname(draggedItem.path)
+          await setProjectSection(projectPath, sectionName || null)
+        }
+        return
+      }
+
+      // Only handle task/note items for the rest (not projects)
       if (draggedItem.meta.type === 'project') return
 
       // Handle task reordering within the same list (sortable task list)
