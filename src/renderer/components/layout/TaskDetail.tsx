@@ -19,14 +19,14 @@ export function TaskDetail() {
   const { confirm, dialogProps } = useConfirm()
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
-  const [prevSelectedId, setPrevSelectedId] = useState<string | null>(selectedItem?.id ?? null)
 
   useEffect(() => {
-    if (selectedItem?.id !== prevSelectedId) {
-      setPrevSelectedId(selectedItem?.id ?? null)
-      setLocalItem(selectedItem ?? null)
+    if (!selectedItem) {
+      setLocalItem(null)
+      return
     }
-  }, [selectedItem, prevSelectedId])
+    setLocalItem(selectedItem)
+  }, [selectedItem?.id])
 
   const handleSave = useCallback(async () => {
     if (!localItem) return

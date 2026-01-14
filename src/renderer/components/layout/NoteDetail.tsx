@@ -25,10 +25,10 @@ export function NoteDetail({ note }: NoteDetailProps) {
   useEffect(() => {
     if (note.id !== prevNoteId) {
       setPrevNoteId(note.id)
-      setTitle(note.title)
-      setContent(note.content || '')
     }
-  }, [note, prevNoteId])
+    setTitle(note.title)
+    setContent(note.content || '')
+  }, [note.id, note.title, note.content, prevNoteId])
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
