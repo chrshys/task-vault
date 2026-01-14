@@ -4,6 +4,28 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
 import { useEffect, useState } from 'react'
 import { Bold, Italic, List, ListOrdered, Link as LinkIcon, X } from 'lucide-react'
+import { marked } from 'marked'
+
+// Check if text looks like markdown
+function looksLikeMarkdown(text: string): boolean {
+  const markdownPatterns = [
+    /^#{1,6}\s+\S/m,           // Headings: # Heading
+    /\*\*[^*]+\*\*/,           // Bold: **text**
+    /\*[^*]+\*/,               // Italic: *text*
+    /__[^_]+__/,               // Bold: __text__
+    /_[^_]+_/,                 // Italic: _text_
+    /\[.+?\]\(.+?\)/,          // Links: [text](url)
+    /^[-*+]\s+\S/m,            // Unordered lists: - item
+    /^\d+\.\s+\S/m,            // Ordered lists: 1. item
+    /^>\s+\S/m,                // Blockquotes: > text
+    /`[^`]+`/,                 // Inline code: `code`
+    /^```/m,                   // Code blocks: ```
+    /^\|.+\|$/m,               // Tables: | col | col |
+  ]
+
+  // Must match at least one markdown pattern
+  return markdownPatterns.some(pattern => pattern.test(text))
+}
 
 interface RichTextEditorProps {
   content: string
@@ -160,6 +182,51 @@ export function RichTextEditor({
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML())
+    },
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const clipboardData = event.clipboardData
+        if (!clipboardData) return false
+
+        // Prefer text/html if available
+        const html = clipboardData.getData('text/html')
+        if (html) {
+          // Clean up the HTML - remove meta tags, comments, and unnecessary wrappers
+          const parser = new DOMParser()
+          const doc = parser.parseFromString(html, 'text/html')
+          const cleanHtml = doc.body.innerHTML
+
+          // Use Tiptap's built-in HTML parsing
+          editor?.commands.insertContent(cleanHtml, {
+            parseOptions: { preserveWhitespace: false },
+          })
+
+          return true
+        }
+
+        const text = clipboardData.getData('text/plain')
+        if (!text) return false
+
+        // Check if plain text looks like HTML
+        if (/<[a-z][\s\S]*>/i.test(text)) {
+          editor?.commands.insertContent(text, {
+            parseOptions: { preserveWhitespace: false },
+          })
+          return true
+        }
+
+        // Check if plain text looks like markdown
+        if (looksLikeMarkdown(text)) {
+          const html = marked.parse(text, { async: false }) as string
+          editor?.commands.insertContent(html, {
+            parseOptions: { preserveWhitespace: false },
+          })
+          return true
+        }
+
+        // Let Tiptap handle other paste cases
+        return false
+      },
     },
   })
 
