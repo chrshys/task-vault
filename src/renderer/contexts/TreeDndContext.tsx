@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useVault } from './VaultContext'
-import type { VaultItem, TreeNode, TaskMeta } from '@shared/types'
+import type { VaultItem, TreeNode, TaskMeta, ProjectMeta } from '@shared/types'
 import path from 'path-browserify'
 
 interface TreeDndContextValue {
@@ -35,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, moveItem, updateSortOrder, vaultPath, setProjectSection } = useVault()
+  const { items, moveItem, updateSortOrder, vaultPath, setProjectSection, sectionOrder, reorderSections } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -59,9 +59,30 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
 
       const activeId = String(active.id)
       const overId = String(over.id)
-      const overData = over.data.current as { node?: TreeNode; sectionName?: string } | undefined
+      const activeData = active.data.current as { node?: TreeNode; sectionKey?: string; type?: string } | undefined
+      const overData = over.data.current as { node?: TreeNode; sectionName?: string; sectionKey?: string; type?: string } | undefined
 
       // Check if this is a task being dropped on a sidebar project
+      // Handle section reordering
+      if (activeData?.type === 'section') {
+        const targetKey = overData?.type === 'section'
+          ? overData.sectionKey
+          : overData?.type === 'project'
+            ? overData.sectionKey
+            : overData?.sectionName
+        const sourceKey = activeData.sectionKey
+
+        if (targetKey !== undefined && sourceKey !== undefined) {
+          const order = sectionOrder
+          const oldIndex = order.indexOf(sourceKey)
+          const newIndex = order.indexOf(targetKey)
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            await reorderSections(arrayMove(order, oldIndex, newIndex))
+          }
+        }
+        return
+      }
+
       const draggedItem = items.get(activeId)
       if (!draggedItem) return
 
@@ -75,8 +96,62 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         return
       }
 
-      // Only handle task/note items for the rest (not projects)
-      if (draggedItem.meta.type === 'project') return
+      // Handle project reordering within a section
+      if (draggedItem.meta.type === 'project') {
+        if (overData?.type === 'project') {
+          const sourceSectionKey = activeData?.sectionKey ?? ''
+          const targetSectionKey = overData.sectionKey ?? ''
+          const projectSorter = (a: VaultItem, b: VaultItem) => {
+            const aOrder = (a.meta as ProjectMeta).sort_order ?? Number.POSITIVE_INFINITY
+            const bOrder = (b.meta as ProjectMeta).sort_order ?? Number.POSITIVE_INFINITY
+            if (aOrder !== bOrder) return aOrder - bOrder
+            return a.title.localeCompare(b.title)
+          }
+
+          if (sourceSectionKey === targetSectionKey) {
+            const siblings = Array.from(items.values())
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === sourceSectionKey)
+              .sort(projectSorter)
+
+            const oldIndex = siblings.findIndex(i => i.id === activeId)
+            const newIndex = siblings.findIndex(i => i.id === overId)
+
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+              const reordered = arrayMove(siblings, oldIndex, newIndex)
+              for (let i = 0; i < reordered.length; i++) {
+                await updateSortOrder(reordered[i].id, i)
+              }
+            }
+          } else {
+            const sourceSiblings = Array.from(items.values())
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === sourceSectionKey)
+              .sort(projectSorter)
+            const targetSiblings = Array.from(items.values())
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === targetSectionKey)
+              .sort(projectSorter)
+
+            const draggedProject = sourceSiblings.find(i => i.id === activeId) ?? draggedItem
+            const filteredTarget = targetSiblings.filter(i => i.id !== activeId)
+            const overIndex = filteredTarget.findIndex(i => i.id === overId)
+            const insertIndex = overIndex === -1 ? filteredTarget.length : overIndex
+            const reorderedTarget = [...filteredTarget]
+            reorderedTarget.splice(insertIndex, 0, draggedProject)
+
+            const projectPath = path.dirname(draggedItem.path)
+            await setProjectSection(projectPath, targetSectionKey || null)
+
+            for (let i = 0; i < reorderedTarget.length; i++) {
+              await updateSortOrder(reorderedTarget[i].id, i)
+            }
+
+            const reorderedSource = sourceSiblings.filter(i => i.id !== activeId)
+            for (let i = 0; i < reorderedSource.length; i++) {
+              await updateSortOrder(reorderedSource[i].id, i)
+            }
+          }
+        }
+        return
+      }
 
       // Handle task reordering within the same list (sortable task list)
       const overItem = items.get(overId)

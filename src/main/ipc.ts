@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
-import type { AppSettings, VaultItem } from '../shared/types'
+import type { AppSettings, VaultConfig, VaultItem } from '../shared/types'
 import * as fileService from './services/file-service'
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json')
@@ -56,6 +56,15 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('vault:load', async (_event, folderPath: string) => {
     return fileService.loadVault(folderPath)
+  })
+
+  ipcMain.handle('vault:config:get', async (_event, folderPath: string) => {
+    return fileService.readVaultConfig(folderPath)
+  })
+
+  ipcMain.handle('vault:config:set', async (_event, { folderPath, config }: { folderPath: string; config: VaultConfig }) => {
+    await fileService.writeVaultConfig(folderPath, config)
+    return config
   })
 
   ipcMain.handle('file:read', async (_event, filePath: string) => {

@@ -2178,8 +2178,7 @@ Run the app to ensure it works:
 npm run electron:dev
 ```
 
-Expected behavior:
-1. App opens
+Expected behavior: 
 2. Welcome screen shows if no vault configured
 3. Can create new vault
 4. Sidebar shows with Today/Next 7 Days/Inbox

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Settings, Sun, Moon, Monitor, FolderPlus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -8,36 +10,43 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { SectionHeader } from './SectionHeader'
-import type { TreeNode } from '@shared/types'
+import type { TreeNode, SectionGroup } from '@shared/types'
 
 export function Sidebar() {
-  const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, setProjectSection, renameSection, deleteSection, getAllSectionNames } = useVault()
+  const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, addSection, renameSection, deleteSection, getAllSectionNames } = useVault()
   const { selectedView, selectedPath, setSelectedView, sidebarCollapsed, toggleSectionCollapse, isSectionCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
-  const [showNewProject, setShowNewProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [showListsPopover, setShowListsPopover] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
   const [editingProject, setEditingProject] = useState<{node: TreeNode, name: string} | null>(null)
   const editingProjectRef = useRef<{node: TreeNode, name: string} | null>(null)
-  const [addingToSection, setAddingToSection] = useState<string | null>(null)
-  const [editingSection, setEditingSection] = useState<{name: string, newName: string} | null>(null)
+  const [editingSection, setEditingSection] = useState<string | null>(null)
+  const editingSectionRef = useRef<{name: string, value: string} | null>(null)
+  const shouldFocusSectionEditRef = useRef(false)
   const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{open: boolean, name: string | null}>({open: false, name: null})
-  const [showNewSection, setShowNewSection] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
-  const sectionContextMenu = useContextMenu<string>()
+  const [sectionMenu, setSectionMenu] = useState<{sectionKey: string, sectionLabel: string, step: 'root' | 'project' | 'section'} | null>(null)
+  const sectionContextMenu = useContextMenu<{ name: string, isDefault: boolean }>()
   const sectionEditInputRef = useRef<HTMLInputElement>(null)
   const listsPopoverRef = useRef<HTMLDivElement>(null)
-  const addButtonRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const contextMenu = useContextMenu<TreeNode>()
+  const sectionMenuRef = useRef<HTMLDivElement>(null)
 
   // Keep ref in sync with state
   useEffect(() => {
     editingProjectRef.current = editingProject
   }, [editingProject])
+
+  useEffect(() => {
+    if (!editingSection) return
+    if (!editingSectionRef.current) {
+      editingSectionRef.current = { name: editingSection, value: editingSection }
+    }
+  }, [editingSection])
 
   const todayCount = getTodayTasks().length
   const next7Count = getNext7DaysTasks().length
@@ -49,19 +58,20 @@ export function Sidebar() {
       if (listsPopoverRef.current && !listsPopoverRef.current.contains(e.target as Node)) {
         setShowListsPopover(false)
       }
-      if (addButtonRef.current && !addButtonRef.current.contains(e.target as Node)) {
-        setShowNewProject(false)
-        setNewProjectName('')
-      }
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
         setShowSettingsMenu(false)
       }
+      if (sectionMenuRef.current && !sectionMenuRef.current.contains(e.target as Node)) {
+        setSectionMenu(null)
+        setNewProjectName('')
+        setNewSectionName('')
+      }
     }
-    if (showListsPopover || showNewProject || showSettingsMenu) {
+    if (showListsPopover || showSettingsMenu || sectionMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showListsPopover, showNewProject, showSettingsMenu])
+  }, [showListsPopover, showSettingsMenu, sectionMenu])
 
   // Handle click outside for rename input - use ref to always get latest values
   useEffect(() => {
@@ -133,27 +143,30 @@ export function Sidebar() {
     }
   }
 
-  const handleCreateProjectInSection = async (sectionName: string) => {
-    if (!newProjectName.trim()) return
-    const project = await createProject(newProjectName.trim())
-    if (sectionName) {
-      const projectPath = project.path.replace(/\/_project\.md$/, '')
-      await setProjectSection(projectPath, sectionName)
-    }
+  const handleCreateProjectInSection = async (sectionKey: string, projectName?: string) => {
+    const trimmedName = (projectName ?? newProjectName).trim()
+    if (!trimmedName) return
+    await createProject(trimmedName, sectionKey || null)
     setNewProjectName('')
-    setAddingToSection(null)
+    setSectionMenu(null)
   }
 
   const handleStartSectionRename = (name: string) => {
-    setEditingSection({ name, newName: name })
+    shouldFocusSectionEditRef.current = true
+    const next = { name, value: name }
+    editingSectionRef.current = next
+    setEditingSection(name)
   }
 
-  const handleSectionRenameSubmit = async () => {
-    if (!editingSection) return
-    const { name, newName } = editingSection
+  const handleSectionRenameSubmit = async (valueOverride?: string) => {
+    const current = editingSectionRef.current
+    if (!current) return
+    const { name, value } = current
+    const nextName = valueOverride ?? value
+    editingSectionRef.current = null
     setEditingSection(null)
-    if (newName.trim() && newName !== name) {
-      await renameSection(name, newName.trim())
+    if (nextName.trim() && nextName !== name) {
+      await renameSection(name, nextName.trim())
     }
   }
 
@@ -166,7 +179,6 @@ export function Sidebar() {
   const validateSectionName = (name: string): string | null => {
     const trimmed = name.trim()
     if (!trimmed) return 'Section name cannot be empty'
-    if (trimmed.toLowerCase() === 'projects') return '"Projects" is reserved'
     const existing = getAllSectionNames()
     if (existing.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
       return 'Section already exists'
@@ -174,13 +186,19 @@ export function Sidebar() {
     return null
   }
 
-  const handleCreateNewSection = () => {
+  const handleCreateNewSection = async () => {
     const error = validateSectionName(newSectionName)
     if (!error) {
-      setAddingToSection(newSectionName.trim())
-      setShowNewSection(false)
+      await addSection(newSectionName.trim())
       setNewSectionName('')
+      setSectionMenu(null)
     }
+  }
+
+  const handleOpenSectionMenu = (sectionKey: string, sectionLabel: string) => {
+    setSectionMenu({ sectionKey, sectionLabel, step: 'root' })
+    setNewProjectName('')
+    setNewSectionName('')
   }
 
   // Focus edit input only when editing starts (not on every keystroke)
@@ -194,13 +212,27 @@ export function Sidebar() {
     prevEditingNodeIdRef.current = editingNodeId
   }, [editingNodeId])
 
-  // Focus section edit input
+  // Focus section edit input only when editing starts
   useEffect(() => {
-    if (editingSection && sectionEditInputRef.current) {
+    if (editingSection && shouldFocusSectionEditRef.current && sectionEditInputRef.current) {
+      shouldFocusSectionEditRef.current = false
       sectionEditInputRef.current.focus()
       sectionEditInputRef.current.select()
     }
   }, [editingSection])
+
+  // Save section rename on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!editingSectionRef.current) return
+      if (sectionEditInputRef.current && !sectionEditInputRef.current.contains(e.target as Node)) {
+        handleSectionRenameSubmit(sectionEditInputRef.current.value)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [handleSectionRenameSubmit])
 
   // Inbox drop zone component (expanded view)
   const InboxDropZone = () => {
@@ -278,11 +310,11 @@ export function Sidebar() {
   }
 
   // Render a single project item (drop zone for cross-project task moves)
-  const ProjectItem = ({ node, onClick }: { node: TreeNode, onClick?: () => void }) => {
+  const ProjectItem = ({ node, sectionKey, onClick }: { node: TreeNode, sectionKey: string, onClick?: () => void }) => {
     const isSelected = selectedView === 'project' && selectedPath === node.path
-    const { setNodeRef, isOver } = useDroppable({
-      id: `project-drop-${node.id}`,
-      data: { node }
+    const { setNodeRef, attributes, listeners, transform, transition, isDragging, isOver } = useSortable({
+      id: node.id,
+      data: { node, type: 'project', sectionKey },
     })
 
     const handleClick = () => {
@@ -295,6 +327,8 @@ export function Sidebar() {
         ref={setNodeRef}
         onClick={handleClick}
         onContextMenu={(e) => contextMenu.open(e, node)}
+        {...attributes}
+        {...listeners}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
           isOver
             ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
@@ -302,6 +336,11 @@ export function Sidebar() {
               ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
         }`}
+        style={{
+          opacity: isDragging ? 0.6 : 1,
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
       >
         <span className="flex items-center gap-2.5 flex-1 min-w-0">
           <ListTodo size={16} className={`flex-shrink-0 ${isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
@@ -309,6 +348,190 @@ export function Sidebar() {
         </span>
         {node.count !== undefined && node.count > 0 && (
           <span className={`text-xs tabular-nums ${isOver ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{node.count}</span>
+        )}
+      </div>
+    )
+  }
+
+  const SectionItem = ({ section }: { section: SectionGroup }) => {
+    const sectionKey = section.isDefault ? '' : section.name
+    const sortableId = `section:${section.isDefault ? 'default' : section.name}`
+    const isEditing = editingSection === section.name
+    const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+      id: sortableId,
+      data: { type: 'section', sectionKey },
+      disabled: isEditing,
+    })
+
+    const isCollapsed = isSectionCollapsed(sectionKey)
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+          opacity: isDragging ? 0.6 : 1,
+        }}
+        className={isCollapsed ? 'mb-0' : 'mb-4'}
+      >
+        {isEditing ? (
+          <div className="flex items-center px-3 mb-2">
+            <input
+              key={editingSection ?? 'section-edit'}
+              ref={sectionEditInputRef}
+              type="text"
+              defaultValue={editingSection ?? ''}
+              onChange={(e) => {
+                if (editingSectionRef.current) {
+                  editingSectionRef.current.value = e.target.value
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSectionRenameSubmit(sectionEditInputRef.current?.value)
+                } else if (e.key === 'Escape') {
+                  editingSectionRef.current = null
+                  setEditingSection(null)
+                }
+              }}
+              onBlur={(e) => handleSectionRenameSubmit(e.currentTarget.value)}
+              className="flex-1 px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-white dark:bg-gray-800 border border-blue-500 rounded text-gray-700 dark:text-gray-300 outline-none"
+            />
+          </div>
+        ) : (
+          <div className="relative">
+            <SectionHeader
+              name={section.name}
+              isDefault={section.isDefault}
+              isCollapsed={isCollapsed}
+              onToggleCollapse={() => toggleSectionCollapse(sectionKey)}
+              onAddProject={() => handleOpenSectionMenu(sectionKey, section.name)}
+              onContextMenu={(e) => sectionContextMenu.open(e, { name: section.name, isDefault: section.isDefault })}
+              dragAttributes={attributes}
+              dragListeners={listeners}
+              dragActivatorRef={setActivatorNodeRef}
+              isDragging={isDragging}
+            />
+            {sectionMenu && sectionMenu.sectionKey === sectionKey && (
+              <div
+                ref={sectionMenuRef}
+                className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-2 z-50"
+              >
+                {sectionMenu.step === 'root' && (
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setSectionMenu({ ...sectionMenu, step: 'project' })}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      <ListTodo size={14} />
+                      <span>New Project</span>
+                    </button>
+                    <button
+                      onClick={() => setSectionMenu({ ...sectionMenu, step: 'section' })}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      <FolderPlus size={14} />
+                      <span>New Section</span>
+                    </button>
+                  </div>
+                )}
+
+                {sectionMenu.step === 'project' && (
+                  <div>
+                    <p className="px-1 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      {sectionMenu.sectionLabel}
+                    </p>
+                    <input
+                      type="text"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateProjectInSection(sectionMenu.sectionKey)
+                        } else if (e.key === 'Escape') {
+                          setSectionMenu(null)
+                          setNewProjectName('')
+                        }
+                      }}
+                      placeholder="Project name..."
+                      className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => { setSectionMenu(null); setNewProjectName('') }}
+                        className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleCreateProjectInSection(sectionMenu.sectionKey)}
+                        disabled={!newProjectName.trim()}
+                        className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Create
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {sectionMenu.step === 'section' && (
+                  <div>
+                    <p className="px-1 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      New Section
+                    </p>
+                    <input
+                      type="text"
+                      value={newSectionName}
+                      onChange={(e) => setNewSectionName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateNewSection()
+                        } else if (e.key === 'Escape') {
+                          setSectionMenu(null)
+                          setNewSectionName('')
+                        }
+                      }}
+                      placeholder="Section name..."
+                      className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => { setSectionMenu(null); setNewSectionName('') }}
+                        className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleCreateNewSection}
+                        disabled={!!validateSectionName(newSectionName)}
+                        className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Create
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isCollapsed && (
+          <SortableContext
+            items={section.projects.map((node) => node.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-0.5">
+              {section.projects.map((node) => (
+                editingProject?.node.id === node.id
+                  ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                  : <ProjectItem key={node.id} node={node} sectionKey={sectionKey} />
+              ))}
+            </div>
+          </SortableContext>
         )}
       </div>
     )
@@ -358,19 +581,22 @@ export function Sidebar() {
                 <List size={18} />
               </button>
               {showListsPopover && (
-                <div className="absolute left-full top-0 ml-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 max-h-80 overflow-y-auto">
-                  <p className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                    Projects
-                  </p>
-                  {tree.map((node) => (
-                    editingProject?.node.id === node.id
-                      ? <div key={node.id}>{renderProjectEditInput(node)}</div>
-                      : <ProjectItem
-                          key={node.id}
-                          node={node}
-                          onClick={() => setShowListsPopover(false)}
-                        />
-                  ))}
+                  <div className="absolute left-full top-0 ml-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 max-h-80 overflow-y-auto">
+                    <p className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      Projects
+                    </p>
+                  <SortableContext items={tree.map((node) => node.id)} strategy={verticalListSortingStrategy}>
+                    {tree.map((node) => (
+                      editingProject?.node.id === node.id
+                        ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                        : <ProjectItem
+                            key={node.id}
+                            node={node}
+                            sectionKey={node.sectionName ?? ''}
+                            onClick={() => setShowListsPopover(false)}
+                          />
+                    ))}
+                  </SortableContext>
                 </div>
               )}
             </div>
@@ -479,120 +705,15 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-          {sections.map((section) => (
-            <div key={section.name} className="mb-4">
-              {editingSection?.name === section.name ? (
-                <div className="flex items-center px-3 mb-2">
-                  <input
-                    ref={sectionEditInputRef}
-                    type="text"
-                    value={editingSection.newName}
-                    onChange={(e) => setEditingSection({ ...editingSection, newName: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSectionRenameSubmit()
-                      } else if (e.key === 'Escape') {
-                        setEditingSection(null)
-                      }
-                    }}
-                    onBlur={handleSectionRenameSubmit}
-                    className="flex-1 px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-white dark:bg-gray-800 border border-blue-500 rounded text-gray-700 dark:text-gray-300 outline-none"
-                  />
-                </div>
-              ) : (
-                <SectionHeader
-                  name={section.name}
-                  isDefault={section.isDefault}
-                  isCollapsed={isSectionCollapsed(section.name)}
-                  onToggleCollapse={() => toggleSectionCollapse(section.name)}
-                  onAddProject={() => setAddingToSection(section.isDefault ? '' : section.name)}
-                  onContextMenu={(e) => sectionContextMenu.open(e, section.name)}
-                />
-              )}
+          <SortableContext
+            items={sections.map((section) => `section:${section.isDefault ? 'default' : section.name}`)}
+            strategy={verticalListSortingStrategy}
+          >
+            {sections.map((section) => (
+              <SectionItem key={section.isDefault ? 'default' : section.name} section={section} />
+            ))}
+          </SortableContext>
 
-              {/* New project input for this section */}
-              {addingToSection === (section.isDefault ? '' : section.name) && (
-                <div className="px-3 mb-2">
-                  <input
-                    type="text"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleCreateProjectInSection(section.isDefault ? '' : section.name)
-                      } else if (e.key === 'Escape') {
-                        setAddingToSection(null)
-                        setNewProjectName('')
-                      }
-                    }}
-                    placeholder="Project name..."
-                    className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    autoFocus
-                  />
-                </div>
-              )}
-
-              {/* Projects in this section */}
-              {!isSectionCollapsed(section.name) && (
-                <div className="space-y-0.5">
-                  {section.projects.map((node) => (
-                    editingProject?.node.id === node.id
-                      ? <div key={node.id}>{renderProjectEditInput(node)}</div>
-                      : <ProjectItem key={node.id} node={node} />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* New Section button/form */}
-          {showNewSection ? (
-            <div className="px-3 py-2">
-              <div className="flex items-center gap-2 mb-2">
-                <FolderPlus size={14} className="text-gray-400 dark:text-gray-500" />
-                <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Section</span>
-              </div>
-              <input
-                type="text"
-                value={newSectionName}
-                onChange={(e) => setNewSectionName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCreateNewSection()
-                  } else if (e.key === 'Escape') {
-                    setShowNewSection(false)
-                    setNewSectionName('')
-                  }
-                }}
-                placeholder="Section name..."
-                className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2 mt-2">
-                <button
-                  onClick={() => { setShowNewSection(false); setNewSectionName('') }}
-                  className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateNewSection}
-                  disabled={!!validateSectionName(newSectionName)}
-                  className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowNewSection(true)}
-              className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            >
-              <FolderPlus size={14} />
-              <span>New Section</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -678,13 +799,15 @@ export function Sidebar() {
       {sectionContextMenu.isOpen && sectionContextMenu.data && (
         <ContextMenu x={sectionContextMenu.x} y={sectionContextMenu.y} onClose={sectionContextMenu.close}>
           <ContextMenuItem onClick={() => {
-            handleStartSectionRename(sectionContextMenu.data!)
+            handleStartSectionRename(sectionContextMenu.data!.name)
             sectionContextMenu.close()
           }}>Rename</ContextMenuItem>
-          <ContextMenuItem variant="danger" onClick={() => {
-            setDeleteSectionConfirm({open: true, name: sectionContextMenu.data})
-            sectionContextMenu.close()
-          }}>Delete</ContextMenuItem>
+          {!sectionContextMenu.data!.isDefault && (
+            <ContextMenuItem variant="danger" onClick={() => {
+              setDeleteSectionConfirm({open: true, name: sectionContextMenu.data!.name})
+              sectionContextMenu.close()
+            }}>Delete</ContextMenuItem>
+          )}
         </ContextMenu>
       )}
 

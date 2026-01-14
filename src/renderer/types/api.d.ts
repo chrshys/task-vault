@@ -1,4 +1,4 @@
-import type { VaultItem, AppSettings } from '@shared/types'
+import type { VaultItem, AppSettings, VaultConfig } from '@shared/types'
 
 export interface API {
   readFile: (path: string) => Promise<VaultItem | null>
@@ -11,6 +11,8 @@ export interface API {
   selectVaultFolder: () => Promise<string | null>
   initializeVault: (path: string) => Promise<VaultItem[]>
   loadVault: (path: string) => Promise<VaultItem[]>
+  getVaultConfig: (path: string) => Promise<VaultConfig>
+  setVaultConfig: (path: string, config: VaultConfig) => Promise<VaultConfig>
   completeTask: (path: string) => Promise<VaultItem | null>
   getSettings: () => Promise<AppSettings>
   setSettings: (settings: AppSettings) => Promise<AppSettings>

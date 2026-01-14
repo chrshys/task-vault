@@ -83,6 +83,8 @@ export interface AppSettings {
 export interface VaultConfig {
   version: number
   created: string
+  sections?: string[]
+  defaultSectionName?: string
 }
 
 export type ViewType = 'today' | 'next7' | 'inbox' | 'project'
@@ -94,6 +96,8 @@ export interface TreeNode {
   path: string
   children: TreeNode[]
   count?: number
+  sortOrder?: number
+  sectionName?: string
 }
 
 export interface SectionGroup {

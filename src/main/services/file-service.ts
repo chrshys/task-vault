@@ -7,6 +7,9 @@ import { parseFile, serializeFile } from '../utils/frontmatter'
 import { generateId } from '../utils/id'
 import { createFilename } from '../utils/slug'
 
+const VAULT_CONFIG_FILENAME = '.vault.json'
+const DEFAULT_SECTION_NAME = 'Projects'
+
 let watcher: FSWatcher | null = null
 let vaultPath: string | null = null
 
@@ -20,15 +23,39 @@ export async function initializeVault(folderPath: string): Promise<void> {
   const config: VaultConfig = {
     version: 1,
     created: new Date().toISOString(),
+    sections: [],
+    defaultSectionName: DEFAULT_SECTION_NAME,
   }
   await fs.writeFile(
-    path.join(folderPath, '.vault.json'),
+    path.join(folderPath, VAULT_CONFIG_FILENAME),
     JSON.stringify(config, null, 2)
   )
 
   // Create Inbox directory (no project marker - it's a special system folder)
   const inboxPath = path.join(folderPath, 'Inbox')
   await fs.mkdir(inboxPath, { recursive: true })
+}
+
+export async function readVaultConfig(folderPath: string): Promise<VaultConfig> {
+  try {
+    const content = await fs.readFile(path.join(folderPath, VAULT_CONFIG_FILENAME), 'utf-8')
+    const parsed = JSON.parse(content) as VaultConfig
+    return {
+      version: parsed.version ?? 1,
+      created: parsed.created ?? new Date().toISOString(),
+      sections: parsed.sections ?? [],
+      defaultSectionName: parsed.defaultSectionName ?? DEFAULT_SECTION_NAME,
+    }
+  } catch {
+    return { version: 1, created: new Date().toISOString(), sections: [], defaultSectionName: DEFAULT_SECTION_NAME }
+  }
+}
+
+export async function writeVaultConfig(folderPath: string, config: VaultConfig): Promise<void> {
+  await fs.writeFile(
+    path.join(folderPath, VAULT_CONFIG_FILENAME),
+    JSON.stringify(config, null, 2)
+  )
 }
 
 export async function loadVault(folderPath: string): Promise<VaultItem[]> {

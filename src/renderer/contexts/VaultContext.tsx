@@ -1,10 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { VaultItem, VaultTask, TreeNode, SectionGroup, ItemType, ItemMeta, TaskMeta, NoteMeta, ProjectMeta, RepeatConfig } from '@shared/types'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
+import type { VaultItem, VaultTask, TreeNode, SectionGroup, ItemType, ItemMeta, TaskMeta, NoteMeta, ProjectMeta, RepeatConfig, VaultConfig } from '@shared/types'
 import path from 'path-browserify'
 
 interface VaultContextValue {
   items: Map<string, VaultItem>
   sections: SectionGroup[]
+  sectionOrder: string[]
+  defaultSectionName: string
   tree: TreeNode[]
   loading: boolean
   vaultPath: string | null
@@ -16,7 +18,7 @@ interface VaultContextValue {
   deleteItem: (path: string) => Promise<void>
   duplicateItem: (item: VaultItem) => Promise<VaultItem>
   convertItem: (item: VaultItem, toType: 'task' | 'note') => Promise<void>
-  createProject: (name: string) => Promise<VaultItem>
+  createProject: (name: string, sectionName?: string | null) => Promise<VaultItem>
   renameProject: (projectPath: string, newName: string) => Promise<string>
   getItemsByParent: (parentId: string | null) => VaultItem[]
   getTodayTasks: () => VaultItem[]
@@ -26,17 +28,67 @@ interface VaultContextValue {
   getSubtasks: (parentId: string) => VaultTask[]
   deleteProject: (projectPath: string) => Promise<void>
   updateSortOrder: (itemPath: string, newOrder: number) => Promise<void>
-  setProjectSection: (projectPath: string, sectionName: string | null) => Promise<void>
+  addSection: (sectionName: string) => Promise<void>
+  reorderSections: (order: string[]) => Promise<void>
+  setProjectSection: (projectPath: string, sectionName: string | null, projectItem?: VaultItem) => Promise<void>
   renameSection: (oldName: string, newName: string) => Promise<void>
   deleteSection: (sectionName: string) => Promise<void>
   getAllSectionNames: () => string[]
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
+const DEFAULT_SECTION_NAME = 'Projects'
 
-function buildSections(items: Map<string, VaultItem>): SectionGroup[] {
+function normalizeSectionOrder(sectionOrder: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  let hasDefault = false
+
+  for (const name of sectionOrder) {
+    if (name === '') {
+      if (!hasDefault) {
+        normalized.push('')
+        hasDefault = true
+        seen.add('')
+      }
+      continue
+    }
+    const trimmed = name.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+
+  if (!hasDefault) {
+    normalized.unshift('')
+  }
+
+  return normalized
+}
+
+function normalizeDefaultSectionName(name?: string): string {
+  const trimmed = (name ?? '').trim()
+  return trimmed || DEFAULT_SECTION_NAME
+}
+
+function buildSections(
+  items: Map<string, VaultItem>,
+  sectionOrder: string[] = [],
+  defaultSectionName: string = DEFAULT_SECTION_NAME
+): SectionGroup[] {
   const projectMap = new Map<string, TreeNode>()
   const sectionMap = new Map<string, TreeNode[]>()
+  const normalizedOrder = normalizeSectionOrder(sectionOrder)
+  const orderedSet = new Set<string>()
+
+  for (const name of normalizedOrder) {
+    if (!orderedSet.has(name)) {
+      orderedSet.add(name)
+      sectionMap.set(name, [])
+    }
+  }
 
   // First pass: create project nodes and group by section
   items.forEach((item) => {
@@ -51,6 +103,8 @@ function buildSections(items: Map<string, VaultItem>): SectionGroup[] {
         path: dirPath,
         children: [],
         count: 0,
+        sortOrder: (item.meta as ProjectMeta).sort_order,
+        sectionName: sectionName || '',
       }
       projectMap.set(dirPath, node)
 
@@ -74,26 +128,36 @@ function buildSections(items: Map<string, VaultItem>): SectionGroup[] {
   // Build section groups
   const sections: SectionGroup[] = []
 
-  // Default "Projects" section first (empty string key)
-  const defaultProjects = sectionMap.get('') || []
-  sections.push({
-    name: 'Projects',
-    isDefault: true,
-    projects: defaultProjects.sort((a, b) => a.name.localeCompare(b.name)),
-  })
+  const compareProjects = (a: TreeNode, b: TreeNode) => {
+    const aOrder = a.sortOrder ?? Number.POSITIVE_INFINITY
+    const bOrder = b.sortOrder ?? Number.POSITIVE_INFINITY
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return a.name.localeCompare(b.name)
+  }
 
   // Custom sections alphabetically
-  const customSections = Array.from(sectionMap.keys())
-    .filter(name => name !== '')
-    .sort((a, b) => a.localeCompare(b))
+  const orderedKeys = [
+    ...normalizedOrder,
+    ...Array.from(sectionMap.keys())
+      .filter(name => !orderedSet.has(name))
+      .sort((a, b) => a.localeCompare(b)),
+  ]
 
-  for (const name of customSections) {
-    const projects = sectionMap.get(name) || []
-    sections.push({
-      name,
-      isDefault: false,
-      projects: projects.sort((a, b) => a.name.localeCompare(b.name)),
-    })
+  for (const key of orderedKeys) {
+    const projects = sectionMap.get(key) || []
+    if (key === '') {
+      sections.push({
+        name: defaultSectionName,
+        isDefault: true,
+        projects: projects.sort(compareProjects),
+      })
+    } else {
+      sections.push({
+        name: key,
+        isDefault: false,
+        projects: projects.sort(compareProjects),
+      })
+    }
   }
 
   return sections
@@ -104,31 +168,55 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [sections, setSections] = useState<SectionGroup[]>([])
   const [loading, setLoading] = useState(false)
   const [vaultPath, setVaultPath] = useState<string | null>(null)
+  const [vaultConfig, setVaultConfig] = useState<VaultConfig | null>(null)
+  const [sectionOrder, setSectionOrder] = useState<string[]>([])
+  const [defaultSectionName, setDefaultSectionName] = useState(DEFAULT_SECTION_NAME)
+  const sectionOrderRef = useRef<string[]>([])
 
-  const rebuildSections = useCallback((itemsMap: Map<string, VaultItem>) => {
-    setSections(buildSections(itemsMap))
-  }, [])
+  const rebuildSections = useCallback((itemsMap: Map<string, VaultItem>, sectionOrderOverride?: string[], defaultNameOverride?: string) => {
+    const order = sectionOrderOverride ?? sectionOrderRef.current
+    const defaultName = normalizeDefaultSectionName(defaultNameOverride ?? defaultSectionName)
+    setSections(buildSections(itemsMap, order, defaultName))
+  }, [defaultSectionName])
 
   // Compute flat tree from sections for backward compatibility
   const tree = sections.flatMap(s => s.projects)
 
   const loadVault = useCallback(async (folderPath: string) => {
     setLoading(true)
-    const loadedItems = await window.api.loadVault(folderPath)
+    const [loadedItems, config] = await Promise.all([
+      window.api.loadVault(folderPath),
+      window.api.getVaultConfig(folderPath),
+    ])
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildSections(itemsMap)
+    setVaultConfig(config)
+    const configSections = normalizeSectionOrder(config.sections ?? [])
+    const configDefaultSectionName = normalizeDefaultSectionName(config.defaultSectionName)
+    setSectionOrder(configSections)
+    setDefaultSectionName(configDefaultSectionName)
+    sectionOrderRef.current = configSections
+    rebuildSections(itemsMap, configSections, configDefaultSectionName)
     setLoading(false)
   }, [rebuildSections])
 
   const initializeVault = useCallback(async (folderPath: string) => {
     setLoading(true)
-    const loadedItems = await window.api.initializeVault(folderPath)
+    const [loadedItems, config] = await Promise.all([
+      window.api.initializeVault(folderPath),
+      window.api.getVaultConfig(folderPath),
+    ])
     const itemsMap = new Map(loadedItems.map(item => [item.id, item]))
     setItems(itemsMap)
     setVaultPath(folderPath)
-    rebuildSections(itemsMap)
+    setVaultConfig(config)
+    const configSections = normalizeSectionOrder(config.sections ?? [])
+    const configDefaultSectionName = normalizeDefaultSectionName(config.defaultSectionName)
+    setSectionOrder(configSections)
+    setDefaultSectionName(configDefaultSectionName)
+    sectionOrderRef.current = configSections
+    rebuildSections(itemsMap, configSections, configDefaultSectionName)
     setLoading(false)
   }, [rebuildSections])
 
@@ -228,10 +316,52 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await updateItem({ ...item, meta: newMeta as TaskMeta | NoteMeta })
   }, [updateItem])
 
-  const createProject = useCallback(async (name: string) => {
-    if (!vaultPath) throw new Error('No vault path set')
-    return createItem('project', vaultPath, name)
-  }, [vaultPath, createItem])
+  const persistSectionOrder = useCallback(async (nextSections: string[], itemsOverride?: Map<string, VaultItem>) => {
+    if (!vaultPath) return
+    const normalizedSections = normalizeSectionOrder(nextSections)
+    const normalizedDefaultSectionName = normalizeDefaultSectionName(defaultSectionName)
+    const nextConfig: VaultConfig = {
+      version: vaultConfig?.version ?? 1,
+      created: vaultConfig?.created ?? new Date().toISOString(),
+      sections: normalizedSections,
+      defaultSectionName: normalizedDefaultSectionName,
+    }
+    const itemsMap = itemsOverride ?? items
+    setVaultConfig(nextConfig)
+    setSectionOrder(normalizedSections)
+    sectionOrderRef.current = normalizedSections
+    rebuildSections(itemsMap, normalizedSections, normalizedDefaultSectionName)
+    await window.api.setVaultConfig(vaultPath, nextConfig)
+  }, [defaultSectionName, items, rebuildSections, vaultConfig, vaultPath])
+
+  const persistDefaultSectionName = useCallback(async (nextName: string, itemsOverride?: Map<string, VaultItem>) => {
+    if (!vaultPath) return
+    const normalizedDefaultSectionName = normalizeDefaultSectionName(nextName)
+    const normalizedSections = normalizeSectionOrder(sectionOrder)
+    const nextConfig: VaultConfig = {
+      version: vaultConfig?.version ?? 1,
+      created: vaultConfig?.created ?? new Date().toISOString(),
+      sections: normalizedSections,
+      defaultSectionName: normalizedDefaultSectionName,
+    }
+    const itemsMap = itemsOverride ?? items
+    setVaultConfig(nextConfig)
+    setDefaultSectionName(normalizedDefaultSectionName)
+    rebuildSections(itemsMap, normalizedSections, normalizedDefaultSectionName)
+    await window.api.setVaultConfig(vaultPath, nextConfig)
+  }, [items, rebuildSections, sectionOrder, vaultConfig, vaultPath])
+
+  const addSection = useCallback(async (sectionName: string) => {
+    const trimmed = sectionName.trim()
+    if (!trimmed) return
+    const exists = sectionOrder.some(name => name.toLowerCase() === trimmed.toLowerCase())
+    if (exists) return
+    await persistSectionOrder([...sectionOrder, trimmed])
+  }, [persistSectionOrder, sectionOrder])
+
+  const reorderSections = useCallback(async (order: string[]) => {
+    await persistSectionOrder(order)
+  }, [persistSectionOrder])
 
   const getItemsByParent = useCallback((parentId: string | null) => {
     return Array.from(items.values()).filter(item => {
@@ -452,11 +582,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await updateItem(updatedItem)
   }, [findProjectByDirPath, updateItem, vaultPath, rebuildSections, items])
 
-  const setProjectSection = useCallback(async (projectPath: string, sectionName: string | null) => {
-    const projectItem = findProjectByDirPath(projectPath)
-    if (!projectItem || projectItem.meta.type !== 'project') return
+  const setProjectSection = useCallback(async (projectPath: string, sectionName: string | null, projectItem?: VaultItem) => {
+    const resolvedProjectItem = projectItem ?? findProjectByDirPath(projectPath)
+    if (!resolvedProjectItem || resolvedProjectItem.meta.type !== 'project') return
 
-    const currentMeta = projectItem.meta as ProjectMeta
+    const currentMeta = resolvedProjectItem.meta as ProjectMeta
     const updatedMeta: ProjectMeta = {
       ...currentMeta,
       modified: new Date().toISOString(),
@@ -469,23 +599,65 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       delete updatedMeta.section
     }
 
-    const updatedItem: VaultItem = { ...projectItem, meta: updatedMeta }
+    const updatedItem: VaultItem = { ...resolvedProjectItem, meta: updatedMeta }
 
+    const nextSectionOrder = sectionName
+      ? sectionOrder.some(name => name.toLowerCase() === sectionName.toLowerCase())
+        ? sectionOrder
+        : [...sectionOrder, sectionName]
+      : sectionOrder
+
+    let updatedItems: Map<string, VaultItem> | null = null
     setItems(prev => {
       const next = new Map(prev)
-      next.set(projectItem.id, updatedItem)
-      rebuildSections(next)
+      next.set(resolvedProjectItem.id, updatedItem)
+      updatedItems = next
+      rebuildSections(next, nextSectionOrder)
       return next
     })
 
     await window.api.writeFile(updatedItem.path, updatedItem)
-  }, [findProjectByDirPath, rebuildSections])
+    if (nextSectionOrder !== sectionOrder) {
+      await persistSectionOrder(nextSectionOrder, updatedItems ?? new Map(items))
+    }
+  }, [findProjectByDirPath, items, rebuildSections, persistSectionOrder, sectionOrder])
+
+  const createProject = useCallback(async (name: string, sectionName?: string | null) => {
+    if (!vaultPath) throw new Error('No vault path set')
+    const project = await createItem('project', vaultPath, name)
+    const trimmedSection = sectionName?.trim()
+    if (!trimmedSection) {
+      return project
+    }
+    await setProjectSection(path.dirname(project.path), trimmedSection, project)
+    return project
+  }, [vaultPath, createItem, setProjectSection])
 
   const renameSection = useCallback(async (oldName: string, newName: string) => {
-    if (!newName.trim() || oldName === newName) return
+    const trimmed = newName.trim()
+    if (!trimmed || oldName === trimmed) return
+
+    if (oldName.toLowerCase() === defaultSectionName.toLowerCase()) {
+      const trimmedLower = trimmed.toLowerCase()
+      const hasConflict = sectionOrder.some(name => name.toLowerCase() === trimmedLower)
+        || Array.from(items.values()).some(item => {
+          if (item.meta.type !== 'project') return false
+          return (item.meta as ProjectMeta).section?.toLowerCase() === trimmedLower
+        })
+      if (hasConflict) return
+      await persistDefaultSectionName(trimmed)
+      return
+    }
 
     const updates: VaultItem[] = []
+    const oldNameLower = oldName.toLowerCase()
+    let nextSections = sectionOrder.map(name => name.toLowerCase() === oldNameLower ? trimmed : name)
+    if (!nextSections.some(name => name.toLowerCase() === trimmed.toLowerCase())) {
+      nextSections = [...nextSections, trimmed]
+    }
+    nextSections = normalizeSectionOrder(nextSections)
 
+    let updatedItems: Map<string, VaultItem> | null = null
     setItems(prev => {
       const next = new Map(prev)
       for (const [id, item] of prev) {
@@ -494,14 +666,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           if (projectMeta.section === oldName) {
             const updatedItem: VaultItem = {
               ...item,
-              meta: { ...projectMeta, section: newName, modified: new Date().toISOString() },
+              meta: { ...projectMeta, section: trimmed, modified: new Date().toISOString() },
             }
             next.set(id, updatedItem)
             updates.push(updatedItem)
           }
         }
       }
-      rebuildSections(next)
+      updatedItems = next
+      rebuildSections(next, nextSections)
       return next
     })
 
@@ -509,11 +682,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     for (const item of updates) {
       await window.api.writeFile(item.path, item)
     }
-  }, [rebuildSections])
+    await persistSectionOrder(nextSections, updatedItems ?? new Map(items))
+  }, [defaultSectionName, items, persistDefaultSectionName, persistSectionOrder, rebuildSections, sectionOrder])
 
   const deleteSection = useCallback(async (sectionName: string) => {
+    if (sectionName.toLowerCase() === defaultSectionName.toLowerCase()) return
     const updates: VaultItem[] = []
+    const sectionNameLower = sectionName.toLowerCase()
+    const nextSections = normalizeSectionOrder(
+      sectionOrder.filter(name => name.toLowerCase() !== sectionNameLower)
+    )
 
+    let updatedItems: Map<string, VaultItem> | null = null
     setItems(prev => {
       const next = new Map(prev)
       for (const [id, item] of prev) {
@@ -530,7 +710,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      rebuildSections(next)
+      updatedItems = next
+      rebuildSections(next, nextSections)
       return next
     })
 
@@ -538,10 +719,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     for (const item of updates) {
       await window.api.writeFile(item.path, item)
     }
-  }, [rebuildSections])
+    await persistSectionOrder(nextSections, updatedItems ?? new Map(items))
+  }, [items, persistSectionOrder, rebuildSections, sectionOrder])
 
   const getAllSectionNames = useCallback((): string[] => {
     const names = new Set<string>()
+    names.add(defaultSectionName)
+    for (const name of sectionOrder) {
+      if (name.trim()) names.add(name)
+    }
     for (const item of items.values()) {
       if (item.meta.type === 'project') {
         const section = (item.meta as ProjectMeta).section
@@ -549,7 +735,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b))
-  }, [items])
+  }, [defaultSectionName, items, sectionOrder])
 
   useEffect(() => {
     const unsubChanged = window.api.onFileChanged((item) => {
@@ -596,6 +782,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       value={{
         items,
         sections,
+        sectionOrder,
+        defaultSectionName,
         tree,
         loading,
         vaultPath,
@@ -617,6 +805,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         getSubtasks,
         deleteProject,
         updateSortOrder,
+        addSection,
+        reorderSections,
         setProjectSection,
         renameSection,
         deleteSection,

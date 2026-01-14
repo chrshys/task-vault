@@ -15,6 +15,8 @@ Object.defineProperty(window, 'api', {
   value: {
     loadVault: vi.fn(),
     initializeVault: vi.fn(),
+    getVaultConfig: vi.fn(),
+    setVaultConfig: vi.fn(),
     readFile: vi.fn(),
     writeFile: vi.fn(),
     createFile: vi.fn(),
