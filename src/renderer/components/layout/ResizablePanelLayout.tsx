@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef } from 'react'
-import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
+import { useCallback, useMemo } from 'react'
+import { Group, Panel, Separator, usePanelRef, type PanelSize } from 'react-resizable-panels'
 import { useUI } from '../../contexts/UIContext'
 import { useLayoutPersistence } from '../../hooks/useLayoutPersistence'
 import { useWindowSize } from '../../hooks/useWindowSize'
@@ -20,7 +20,7 @@ export function ResizablePanelLayout() {
   const { items } = useVault()
   const { sizes, setSizes } = useLayoutPersistence()
   const { width: windowWidth } = useWindowSize()
-  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
+  const sidebarPanelRef = usePanelRef()
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
   const isNote = selectedItem?.meta.type === 'note'
@@ -38,22 +38,19 @@ export function ResizablePanelLayout() {
     return Math.min(100, (MAIN_PANEL_MIN_PX / available) * 100)
   }, [windowWidth, layoutMode, sidebarWidthPx])
 
-  const handleSidebarResize = useCallback((size: number) => {
-    const pixelWidth = (size / 100) * windowWidth
+  const handleSidebarResize = useCallback((size: PanelSize) => {
+    const pixelWidth = size.inPixels
     if (pixelWidth < SIDEBAR_MIN_PX && pixelWidth > SIDEBAR_COLLAPSED_PX) {
       sidebarPanelRef.current?.collapse()
       return
     }
     const clamped = Math.min(Math.max(pixelWidth, SIDEBAR_MIN_PX), SIDEBAR_MAX_PX)
     setSizes({ sidebarPx: clamped })
-  }, [setSizes, windowWidth])
+  }, [setSizes, sidebarPanelRef])
 
-  const handleMainPanelResize = useCallback((layout: number[]) => {
-    if (layout.length < 2) return
-    setSizes({
-      taskListPercent: layout[0],
-      taskDetailPercent: layout[1],
-    })
+  const handleMainLayoutChange = useCallback((layout: Record<string, number>) => {
+    if (!layout.taskList || !layout.taskDetail) return
+    setSizes({ taskListPercent: layout.taskList, taskDetailPercent: layout.taskDetail })
   }, [setSizes])
 
   if (focusMode && selectedTaskId) {
@@ -90,18 +87,20 @@ export function ResizablePanelLayout() {
 
   if (layoutMode === 'compact') {
     return (
-      <PanelGroup direction="horizontal" onLayout={handleMainPanelResize}>
-        <Panel defaultSize={selectedTaskId ? sizes.taskListPercent : 100} minSize={mainPanelMinPercent}>
+      <Group orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
+        <Panel
+          id="taskList"
+          defaultSize={selectedTaskId ? sizes.taskListPercent : 100}
+          minSize={mainPanelMinPercent}
+        >
           <TaskList />
         </Panel>
         {selectedTaskId && (
           <>
-            <PanelResizeHandle
+            <Separator
               className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
-              aria-label="Resize panels"
-              tabIndex={0}
             />
-            <Panel defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
+            <Panel id="taskDetail" defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
               {isNote ? (
                 <NoteDetail note={selectedItem as VaultNote} />
               ) : (
@@ -110,14 +109,15 @@ export function ResizablePanelLayout() {
             </Panel>
           </>
         )}
-      </PanelGroup>
+      </Group>
     )
   }
 
   return (
-    <PanelGroup direction="horizontal">
+    <Group orientation="horizontal">
       <Panel
-        ref={sidebarPanelRef}
+        id="sidebar"
+        panelRef={sidebarPanelRef}
         defaultSize={sidebarPercent}
         minSize={sidebarMinPercent}
         maxSize={sidebarMaxPercent}
@@ -127,24 +127,24 @@ export function ResizablePanelLayout() {
       >
         <Sidebar />
       </Panel>
-      <PanelResizeHandle
+      <Separator
         className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
-        aria-label="Resize panels"
-        tabIndex={0}
       />
-      <Panel minSize={mainPanelMinPercent}>
-        <PanelGroup direction="horizontal" onLayout={handleMainPanelResize}>
-          <Panel defaultSize={selectedTaskId ? sizes.taskListPercent : 100} minSize={mainPanelMinPercent}>
+      <Panel id="main" minSize={mainPanelMinPercent}>
+        <Group orientation="horizontal" onLayoutChanged={handleMainLayoutChange}>
+          <Panel
+            id="taskList"
+            defaultSize={selectedTaskId ? sizes.taskListPercent : 100}
+            minSize={mainPanelMinPercent}
+          >
             <TaskList />
           </Panel>
           {selectedTaskId && (
             <>
-              <PanelResizeHandle
+              <Separator
                 className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
-                aria-label="Resize panels"
-                tabIndex={0}
               />
-              <Panel defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
+              <Panel id="taskDetail" defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
                 {isNote ? (
                   <NoteDetail note={selectedItem as VaultNote} />
                 ) : (
@@ -153,8 +153,8 @@ export function ResizablePanelLayout() {
               </Panel>
             </>
           )}
-        </PanelGroup>
+        </Group>
       </Panel>
-    </PanelGroup>
+    </Group>
   )
 }
