@@ -19,13 +19,14 @@ export function TaskDetail() {
   const { confirm, dialogProps } = useConfirm()
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
-  const [prevSelectedItem, setPrevSelectedItem] = useState(selectedItem)
+  const [prevSelectedId, setPrevSelectedId] = useState<string | null>(selectedItem?.id ?? null)
 
-  // Reset local state when selected item changes or on initial mount
-  if (selectedItem !== prevSelectedItem || (selectedItem && !localItem)) {
-    setPrevSelectedItem(selectedItem)
-    setLocalItem(selectedItem || null)
-  }
+  useEffect(() => {
+    if (selectedItem?.id !== prevSelectedId) {
+      setPrevSelectedId(selectedItem?.id ?? null)
+      setLocalItem(selectedItem ?? null)
+    }
+  }, [selectedItem, prevSelectedId])
 
   const handleSave = useCallback(async () => {
     if (!localItem) return
@@ -257,7 +258,7 @@ export function TaskDetail() {
 
         <div className="ml-8">
           <RichTextEditor
-            content={localItem.content}
+            content={localItem.content ?? ''}
             onChange={handleContentChange}
             placeholder="Add description..."
             className="min-h-[200px]"

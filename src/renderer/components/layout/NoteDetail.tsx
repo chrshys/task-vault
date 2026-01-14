@@ -22,12 +22,13 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
 
-  // Reset local state when note changes
-  if (note.id !== prevNoteId) {
-    setPrevNoteId(note.id)
-    setTitle(note.title)
-    setContent(note.content || '')
-  }
+  useEffect(() => {
+    if (note.id !== prevNoteId) {
+      setPrevNoteId(note.id)
+      setTitle(note.title)
+      setContent(note.content || '')
+    }
+  }, [note, prevNoteId])
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
