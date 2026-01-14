@@ -248,7 +248,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return next
     })
     return item
-  }, [vaultPath, rebuildSections])
+  }, [rebuildSections])
 
   const updateItem = useCallback(async (item: VaultItem) => {
     await window.api.writeFile(item.path, item)
@@ -493,7 +493,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       rebuildSections(next)
       return next
     })
-  }, [findProjectByDirPath, getItemsInDirectory, deleteItem, vaultPath, rebuildSections])
+  }, [findProjectByDirPath, getItemsInDirectory, deleteItem, rebuildSections])
 
   const renameProject = useCallback(async (projectPath: string, newName: string): Promise<string> => {
     // Get project item before renaming (we need the current state)
@@ -580,7 +580,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     // Then persist to disk
     await updateItem(updatedItem)
-  }, [findProjectByDirPath, updateItem, vaultPath, rebuildSections, items])
+  }, [findProjectByDirPath, updateItem, rebuildSections, items])
 
   const setProjectSection = useCallback(async (projectPath: string, sectionName: string | null, projectItem?: VaultItem) => {
     const resolvedProjectItem = projectItem ?? findProjectByDirPath(projectPath)

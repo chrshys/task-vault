@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Settings, Sun, Moon, Monitor, FolderPlus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -158,7 +158,7 @@ export function Sidebar() {
     setEditingSection(name)
   }
 
-  const handleSectionRenameSubmit = async (valueOverride?: string) => {
+  const handleSectionRenameSubmit = useCallback(async (valueOverride?: string) => {
     const current = editingSectionRef.current
     if (!current) return
     const { name, value } = current
@@ -168,7 +168,7 @@ export function Sidebar() {
     if (nextName.trim() && nextName !== name) {
       await renameSection(name, nextName.trim())
     }
-  }
+  }, [renameSection])
 
   const handleDeleteSection = async () => {
     if (!deleteSectionConfirm.name) return
