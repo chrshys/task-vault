@@ -21,6 +21,12 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const { confirm, dialogProps } = useConfirm()
 
   useEffect(() => {
+    console.debug('[NoteDetail] selection', {
+      id: note.id,
+      title: note.title,
+      contentLength: note.content?.length ?? 0,
+      contentPreview: (note.content || '').slice(0, 120),
+    })
     setLocalNote(note)
   }, [note.id])
 
