@@ -167,6 +167,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
         <div className="ml-8">
           <RichTextEditor
+            key={note.id}
             content={content}
             onChange={setContent}
             placeholder="Write your note..."
