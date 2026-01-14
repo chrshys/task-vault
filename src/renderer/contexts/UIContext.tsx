@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import type { ViewType } from '@shared/types'
 import { useWindowSize } from '../hooks/useWindowSize'
 
@@ -42,6 +42,10 @@ interface UIContextValue {
   setSelectedView: (view: ViewType, path?: string) => void
   setSelectedTaskId: (id: string | null) => void
   toggleSidebar: () => void
+  canGoBack: boolean
+  canGoForward: boolean
+  goBack: () => void
+  goForward: () => void
   toggleSectionCollapse: (sectionName: string) => void
   isSectionCollapsed: (sectionName: string) => boolean
   openQuickAdd: (type: 'task' | 'note') => void
@@ -49,6 +53,8 @@ interface UIContextValue {
 }
 
 const UIContext = createContext<UIContextValue | null>(null)
+
+type NavigationState = { view: ViewType, path: string | null, taskId: string | null }
 
 export function UIProvider({ children, vaultPath = null }: { children: ReactNode, vaultPath?: string | null }) {
   const [selectedView, setSelectedViewState] = useState<ViewType>('inbox')
@@ -58,6 +64,9 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddType, setQuickAddType] = useState<'task' | 'note'>('task')
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [navHistory, setNavHistory] = useState<NavigationState[]>([])
+  const [navIndex, setNavIndex] = useState(-1)
+  const suppressNavRef = useRef(false)
 
   const { width: windowWidth } = useWindowSize()
   const sidebarCollapsed = sidebarManuallyCollapsed || windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT
@@ -72,11 +81,48 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     saveCollapsedSections(vaultPath, collapsedSections)
   }, [vaultPath, collapsedSections])
 
+  const pushNavState = useCallback((state: NavigationState) => {
+    if (suppressNavRef.current) return
+    setNavHistory(prev => [...prev.slice(0, navIndex + 1), state])
+    setNavIndex(prev => prev + 1)
+  }, [navIndex])
+
   const setSelectedView = useCallback((view: ViewType, path?: string) => {
     setSelectedViewState(view)
     setSelectedPath(path || null)
     setSelectedTaskId(null)
+    pushNavState({ view, path: path || null, taskId: null })
+  }, [pushNavState])
+
+  const setSelectedTaskIdWithNav = useCallback((id: string | null) => {
+    setSelectedTaskId(id)
+    pushNavState({ view: selectedView, path: selectedPath, taskId: id })
+  }, [pushNavState, selectedView, selectedPath])
+
+  const canGoBack = navIndex > 0
+  const canGoForward = navIndex < navHistory.length - 1
+
+  const applyNavState = useCallback((state: NavigationState) => {
+    suppressNavRef.current = true
+    setSelectedViewState(state.view)
+    setSelectedPath(state.path)
+    setSelectedTaskId(state.taskId)
+    queueMicrotask(() => { suppressNavRef.current = false })
   }, [])
+
+  const goBack = useCallback(() => {
+    if (!canGoBack) return
+    const prev = navHistory[navIndex - 1]
+    setNavIndex(prevIndex => prevIndex - 1)
+    applyNavState(prev)
+  }, [canGoBack, navHistory, navIndex, applyNavState])
+
+  const goForward = useCallback(() => {
+    if (!canGoForward) return
+    const next = navHistory[navIndex + 1]
+    setNavIndex(prevIndex => prevIndex + 1)
+    applyNavState(next)
+  }, [canGoForward, navHistory, navIndex, applyNavState])
 
   const toggleSidebar = useCallback(() => {
     setSidebarManuallyCollapsed(prev => !prev)
@@ -120,8 +166,12 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
         quickAddType,
         collapsedSections,
         setSelectedView,
-        setSelectedTaskId,
+        setSelectedTaskId: setSelectedTaskIdWithNav,
         toggleSidebar,
+        canGoBack,
+        canGoForward,
+        goBack,
+        goForward,
         toggleSectionCollapse,
         isSectionCollapsed,
         openQuickAdd,
