@@ -134,15 +134,13 @@ export function TaskDetail() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
-      {/* Header with checkbox/icon and control ribbon */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-3">
-          {/* Checkbox for tasks, icon for notes */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex items-start gap-3 mb-3">
           {isTask ? (
             <button
               type="button"
               onClick={handleToggleComplete}
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
+              className={`w-5 h-5 mt-1 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
                 isCompleted
                   ? 'bg-blue-600 border-blue-600 text-white'
                   : 'border-gray-400 dark:border-gray-500 hover:border-blue-500'
@@ -155,14 +153,31 @@ export function TaskDetail() {
               )}
             </button>
           ) : (
-            <div className="text-gray-400 dark:text-gray-500 flex-shrink-0">
+            <div className="text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
           )}
 
-          {/* Due date picker (tasks only) */}
+          <textarea
+            ref={titleRef}
+            value={localItem.title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.preventDefault()
+            }}
+            rows={1}
+            className={`flex-1 text-xl font-semibold bg-transparent border-none outline-none resize-none ${
+              isCompleted
+                ? 'text-gray-400 dark:text-gray-500 line-through'
+                : 'text-gray-900 dark:text-white'
+            }`}
+            placeholder={isTask ? "Task title" : "Note title"}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 mb-4 ml-8">
           {isTask && (
             <DueDatePicker
               dueDate={due ? new Date(due) : null}
@@ -172,7 +187,6 @@ export function TaskDetail() {
             />
           )}
 
-          {/* More Options dropdown */}
           <div ref={moreMenuRef} className="relative">
             <button
               type="button"
@@ -225,34 +239,17 @@ export function TaskDetail() {
             )}
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Title */}
-        <textarea
-          ref={titleRef}
-          value={localItem.title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.preventDefault()
-          }}
-          rows={1}
-          className={`w-full text-xl font-semibold bg-transparent border-none outline-none mb-4 resize-none ${
-            isCompleted
-              ? 'text-gray-400 dark:text-gray-500 line-through'
-              : 'text-gray-900 dark:text-white'
-          }`}
-          placeholder={isTask ? "Task title" : "Note title"}
-        />
+        <div className="ml-8">
+          <RichTextEditor
+            content={localItem.content}
+            onChange={handleContentChange}
+            placeholder="Add description..."
+            className="min-h-[200px]"
+          />
 
-        <RichTextEditor
-          content={localItem.content}
-          onChange={handleContentChange}
-          placeholder="Add description..."
-          className="min-h-[200px]"
-        />
-
-        {isTask && <SubtaskList parentId={localItem.id} />}
+          {isTask && <SubtaskList parentId={localItem.id} />}
+        </div>
       </div>
       {dialogProps && <ConfirmDialog {...dialogProps} />}
     </div>
