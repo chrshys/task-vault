@@ -14,7 +14,7 @@ Three layout modes based on window width:
 | Compact | 640-899px | Task List + Task Detail |
 | Mobile | <640px | Single panel (list OR detail) |
 
-**Minimum app window width:** 320px (reduced from current ~680px)
+**Minimum app window width:** 320px (update Electron `minWidth` to allow compact/mobile modes)
 
 ## Panel Constraints
 
@@ -35,7 +35,7 @@ Three layout modes based on window width:
 - 4-6px hit area
 - Cursor changes to `col-resize` on hover
 
-**Persistence:** Panel sizes stored in localStorage, restored on app launch.
+**Persistence:** Panel sizes stored globally in localStorage, restored on app launch.
 
 ## Mobile Navigation (<640px)
 
@@ -86,6 +86,7 @@ Move header content (checkbox, due date, more menu) into the body:
 - All three panels visible
 - Both drag handles active
 - Sidebar can collapse to icon-only via drag
+- No width-based auto-collapse in full mode (manual collapse only)
 
 ### 640-899px (Compact Mode)
 - Sidebar auto-hidden (not just collapsed - completely hidden)
@@ -106,18 +107,19 @@ Move header content (checkbox, due date, more menu) into the body:
 2. **useResponsiveLayout** - Hook to track viewport width and determine current layout mode
 3. **useLayoutPersistence** - Hook to save/restore panel sizes from localStorage
 4. **FocusModeToggle** - Button component for task detail focus mode
-5. **MobileNavBar** - Modified top bar with back/forward navigation for mobile mode
+5. **TitleBar updates** - Modified top bar with back/forward navigation for mobile mode
 
 ## State Management
 
 Add to UIContext:
 - `layoutMode`: 'full' | 'compact' | 'mobile'
 - `focusMode`: boolean
-- `panelSizes`: { sidebar: number, taskList: number, taskDetail: number }
+- `panelSizes`: { sidebarPx: number, taskListPercent: number, taskDetailPercent: number }
+- `navigationHistory`: stack + current index for back/forward
 
 ## Accessibility
 
 - Drag handles include ARIA labels for screen readers
-- Keyboard support for resizing (arrow keys when handle focused)
+- Keyboard support for resizing (arrow keys when handle focused) via focusable resize handles
 - Focus mode toggle has clear label
 - Mobile navigation uses semantic button elements

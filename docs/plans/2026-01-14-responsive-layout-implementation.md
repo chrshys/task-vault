@@ -10,6 +10,35 @@
 
 ---
 
+## Task 0: Lower app min width for responsive modes
+
+**Files:**
+- Modify: `src/main/index.ts`
+
+**Step 1: Update Electron window constraints**
+
+Set the minimum width to 320 so compact/mobile modes are reachable:
+
+```typescript
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 320,
+    minHeight: 600,
+    titleBarStyle: 'hiddenInset',
+    // ...
+  })
+```
+
+**Step 2: Commit**
+
+```bash
+git add src/main/index.ts
+git commit -m "chore: lower min window width for responsive layouts"
+```
+
+---
+
 ## Task 1: Install react-resizable-panels
 
 **Files:**
@@ -118,164 +147,105 @@ git commit -m "feat: add useLayoutMode hook for responsive breakpoints"
 
 ---
 
-## Task 3: Create NavigationContext for back/forward
+## Task 3: Add navigation history to UIContext
 
 **Files:**
-- Create: `src/renderer/contexts/NavigationContext.tsx`
-- Test: `src/renderer/contexts/NavigationContext.test.tsx`
+- Modify: `src/renderer/contexts/UIContext.tsx`
+- Test: `src/renderer/contexts/UIContext.test.tsx`
 
-**Step 1: Write the test file**
+**Step 1: Add navigation types and helpers**
 
 ```typescript
-import { describe, it, expect } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { NavigationProvider, useNavigation } from './NavigationContext'
-import type { ReactNode } from 'react'
-
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <NavigationProvider>{children}</NavigationProvider>
-)
-
-describe('NavigationContext', () => {
-  it('starts with no history', () => {
-    const { result } = renderHook(() => useNavigation(), { wrapper })
-    expect(result.current.canGoBack).toBe(false)
-    expect(result.current.canGoForward).toBe(false)
-  })
-
-  it('can navigate and go back', () => {
-    const { result } = renderHook(() => useNavigation(), { wrapper })
-
-    act(() => {
-      result.current.navigate({ view: 'inbox', path: null, taskId: null })
-    })
-    act(() => {
-      result.current.navigate({ view: 'project', path: '/test', taskId: null })
-    })
-
-    expect(result.current.canGoBack).toBe(true)
-
-    act(() => {
-      result.current.goBack()
-    })
-
-    expect(result.current.current).toEqual({ view: 'inbox', path: null, taskId: null })
-    expect(result.current.canGoForward).toBe(true)
-  })
-
-  it('can go forward after going back', () => {
-    const { result } = renderHook(() => useNavigation(), { wrapper })
-
-    act(() => {
-      result.current.navigate({ view: 'inbox', path: null, taskId: null })
-    })
-    act(() => {
-      result.current.navigate({ view: 'project', path: '/test', taskId: null })
-    })
-    act(() => {
-      result.current.goBack()
-    })
-    act(() => {
-      result.current.goForward()
-    })
-
-    expect(result.current.current).toEqual({ view: 'project', path: '/test', taskId: null })
-  })
-})
+type NavigationState = { view: ViewType, path: string | null, taskId: string | null }
 ```
 
-**Step 2: Run test to verify it fails**
-
-Run: `npm test -- src/renderer/contexts/NavigationContext.test.tsx`
-Expected: FAIL - module not found
-
-**Step 3: Write the implementation**
+**Step 2: Add navigation state + API to UIContextValue**
 
 ```typescript
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { ViewType } from '@shared/types'
-
-interface NavigationState {
-  view: ViewType
-  path: string | null
-  taskId: string | null
-}
-
-interface NavigationContextValue {
-  current: NavigationState | null
+interface UIContextValue {
+  // ...
   canGoBack: boolean
   canGoForward: boolean
-  navigate: (state: NavigationState) => void
   goBack: () => void
   goForward: () => void
 }
-
-const NavigationContext = createContext<NavigationContextValue | null>(null)
-
-export function NavigationProvider({ children }: { children: ReactNode }) {
-  const [history, setHistory] = useState<NavigationState[]>([])
-  const [currentIndex, setCurrentIndex] = useState(-1)
-
-  const current = currentIndex >= 0 ? history[currentIndex] : null
-  const canGoBack = currentIndex > 0
-  const canGoForward = currentIndex < history.length - 1
-
-  const navigate = useCallback((state: NavigationState) => {
-    setHistory(prev => {
-      // Truncate forward history when navigating
-      const newHistory = prev.slice(0, currentIndex + 1)
-      return [...newHistory, state]
-    })
-    setCurrentIndex(prev => prev + 1)
-  }, [currentIndex])
-
-  const goBack = useCallback(() => {
-    if (canGoBack) {
-      setCurrentIndex(prev => prev - 1)
-    }
-  }, [canGoBack])
-
-  const goForward = useCallback(() => {
-    if (canGoForward) {
-      setCurrentIndex(prev => prev + 1)
-    }
-  }, [canGoForward])
-
-  return (
-    <NavigationContext.Provider
-      value={{
-        current,
-        canGoBack,
-        canGoForward,
-        navigate,
-        goBack,
-        goForward,
-      }}
-    >
-      {children}
-    </NavigationContext.Provider>
-  )
-}
-
-export function useNavigation() {
-  const context = useContext(NavigationContext)
-  if (!context) {
-    throw new Error('useNavigation must be used within a NavigationProvider')
-  }
-  return context
-}
 ```
 
-**Step 4: Run test to verify it passes**
+**Step 3: Implement history stack in UIProvider**
 
-Run: `npm test -- src/renderer/contexts/NavigationContext.test.tsx`
-Expected: PASS
+Use a ref flag to avoid re-pushing when applying history:
 
-**Step 5: Commit**
+```typescript
+const [navHistory, setNavHistory] = useState<NavigationState[]>([])
+const [navIndex, setNavIndex] = useState(-1)
+const suppressNavRef = useRef(false)
+
+const pushNavState = useCallback((state: NavigationState) => {
+  if (suppressNavRef.current) return
+  setNavHistory(prev => [...prev.slice(0, navIndex + 1), state])
+  setNavIndex(prev => prev + 1)
+}, [navIndex])
+
+const setSelectedView = useCallback((view: ViewType, path?: string) => {
+  setSelectedViewState(view)
+  setSelectedPath(path || null)
+  setSelectedTaskId(null)
+  pushNavState({ view, path: path || null, taskId: null })
+}, [pushNavState])
+
+const setSelectedTaskIdWithNav = useCallback((id: string | null) => {
+  setSelectedTaskId(id)
+  pushNavState({ view: selectedView, path: selectedPath, taskId: id })
+}, [pushNavState, selectedView, selectedPath])
+
+const canGoBack = navIndex > 0
+const canGoForward = navIndex < navHistory.length - 1
+
+const applyNavState = useCallback((state: NavigationState) => {
+  suppressNavRef.current = true
+  setSelectedViewState(state.view)
+  setSelectedPath(state.path)
+  setSelectedTaskId(state.taskId)
+  queueMicrotask(() => { suppressNavRef.current = false })
+}, [])
+
+const goBack = useCallback(() => {
+  if (!canGoBack) return
+  const prev = navHistory[navIndex - 1]
+  setNavIndex(prevIndex => prevIndex - 1)
+  applyNavState(prev)
+}, [canGoBack, navHistory, navIndex, applyNavState])
+
+const goForward = useCallback(() => {
+  if (!canGoForward) return
+  const next = navHistory[navIndex + 1]
+  setNavIndex(prevIndex => prevIndex + 1)
+  applyNavState(next)
+}, [canGoForward, navHistory, navIndex, applyNavState])
+```
+
+**Step 4: Update provider value to expose navigation + replace setSelectedTaskId**
+
+```typescript
+value={{
+  // ...
+  setSelectedTaskId: setSelectedTaskIdWithNav,
+  canGoBack,
+  canGoForward,
+  goBack,
+  goForward,
+}}
+```
+
+**Step 5: Add/Update tests**
+
+- Cover initial history, push-on-selection, and back/forward behavior.
+
+**Step 6: Commit**
 
 ```bash
-git add src/renderer/contexts/NavigationContext.tsx src/renderer/contexts/NavigationContext.test.tsx
-git commit -m "feat: add NavigationContext for back/forward history"
+git add src/renderer/contexts/UIContext.tsx src/renderer/contexts/UIContext.test.tsx
+git commit -m "feat: add navigation history to UIContext"
 ```
 
 ---
@@ -301,9 +271,9 @@ describe('useLayoutPersistence', () => {
   it('returns default sizes when no stored value', () => {
     const { result } = renderHook(() => useLayoutPersistence())
     expect(result.current.sizes).toEqual({
-      sidebar: 256,
-      taskList: 40,
-      taskDetail: 60,
+      sidebarPx: 256,
+      taskListPercent: 40,
+      taskDetailPercent: 60,
     })
   })
 
@@ -311,22 +281,22 @@ describe('useLayoutPersistence', () => {
     const { result } = renderHook(() => useLayoutPersistence())
 
     act(() => {
-      result.current.setSizes({ sidebar: 300, taskList: 50, taskDetail: 50 })
+      result.current.setSizes({ sidebarPx: 300, taskListPercent: 50, taskDetailPercent: 50 })
     })
 
     const stored = JSON.parse(localStorage.getItem('panel-sizes') || '{}')
-    expect(stored.sidebar).toBe(300)
+    expect(stored.sidebarPx).toBe(300)
   })
 
   it('restores sizes from localStorage', () => {
     localStorage.setItem('panel-sizes', JSON.stringify({
-      sidebar: 200,
-      taskList: 45,
-      taskDetail: 55,
+      sidebarPx: 200,
+      taskListPercent: 45,
+      taskDetailPercent: 55,
     }))
 
     const { result } = renderHook(() => useLayoutPersistence())
-    expect(result.current.sizes.sidebar).toBe(200)
+    expect(result.current.sizes.sidebarPx).toBe(200)
   })
 })
 ```
@@ -344,15 +314,15 @@ import { useState, useCallback, useEffect } from 'react'
 const STORAGE_KEY = 'panel-sizes'
 
 interface PanelSizes {
-  sidebar: number      // pixels
-  taskList: number     // percentage of remaining space
-  taskDetail: number   // percentage of remaining space
+  sidebarPx: number
+  taskListPercent: number
+  taskDetailPercent: number
 }
 
 const DEFAULT_SIZES: PanelSizes = {
-  sidebar: 256,
-  taskList: 40,
-  taskDetail: 60,
+  sidebarPx: 256,
+  taskListPercent: 40,
+  taskDetailPercent: 60,
 }
 
 export function useLayoutPersistence() {
@@ -368,8 +338,8 @@ export function useLayoutPersistence() {
     return DEFAULT_SIZES
   })
 
-  const setSizes = useCallback((newSizes: PanelSizes) => {
-    setSizesState(newSizes)
+  const setSizes = useCallback((newSizes: Partial<PanelSizes>) => {
+    setSizesState(prev => ({ ...prev, ...newSizes }))
   }, [])
 
   // Persist to localStorage when sizes change
@@ -399,15 +369,13 @@ git commit -m "feat: add useLayoutPersistence hook for saving panel sizes"
 
 ---
 
-## Task 5: Update UIContext with focusMode and layoutMode
+## Task 5: Update UIContext with layoutMode + focusMode (remove auto-collapse)
 
 **Files:**
 - Modify: `src/renderer/contexts/UIContext.tsx:32-49` (interface)
 - Modify: `src/renderer/contexts/UIContext.tsx:53-134` (provider)
 
 **Step 1: Update the UIContextValue interface**
-
-Add to the interface around line 32:
 
 ```typescript
 interface UIContextValue {
@@ -416,7 +384,6 @@ interface UIContextValue {
   selectedTaskId: string | null
   sidebarCollapsed: boolean
   sidebarManuallyCollapsed: boolean
-  sidebarWidth: number
   windowWidth: number
   layoutMode: LayoutMode
   focusMode: boolean
@@ -426,7 +393,6 @@ interface UIContextValue {
   setSelectedView: (view: ViewType, path?: string) => void
   setSelectedTaskId: (id: string | null) => void
   toggleSidebar: () => void
-  setSidebarWidth: (width: number) => void
   toggleFocusMode: () => void
   toggleSectionCollapse: (sectionName: string) => void
   isSectionCollapsed: (sectionName: string) => boolean
@@ -446,12 +412,8 @@ import { useLayoutMode, type LayoutMode } from '../hooks/useLayoutMode'
 
 **Step 3: Update UIProvider with new state**
 
-Add state and handlers in the provider:
-
 ```typescript
 const [focusMode, setFocusMode] = useState(false)
-const [sidebarWidth, setSidebarWidthState] = useState(256)
-
 const layoutMode = useLayoutMode()
 
 // Auto-exit focus mode when entering mobile layout
@@ -461,40 +423,42 @@ useEffect(() => {
   }
 }, [layoutMode])
 
-const setSidebarWidth = useCallback((width: number) => {
-  setSidebarWidthState(width)
-}, [])
-
 const toggleFocusMode = useCallback(() => {
   setFocusMode(prev => !prev)
 }, [])
 ```
 
-**Step 4: Update the Provider value**
+**Step 4: Remove auto-collapse breakpoint**
 
-Add the new values to the Provider:
+Use only manual collapse (layoutMode controls whether the sidebar is shown at all):
+
+```typescript
+const sidebarCollapsed = sidebarManuallyCollapsed
+```
+
+Remove the `SIDEBAR_COLLAPSE_BREAKPOINT` constant and any width-based collapse logic.
+
+**Step 5: Update the Provider value**
 
 ```typescript
 value={{
   // ... existing values
-  sidebarWidth,
   layoutMode,
   focusMode,
-  setSidebarWidth,
   toggleFocusMode,
 }}
 ```
 
-**Step 5: Run typecheck**
+**Step 6: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: May have errors from components not yet updated - that's OK
 
-**Step 6: Commit**
+**Step 7: Commit**
 
 ```bash
 git add src/renderer/contexts/UIContext.tsx
-git commit -m "feat: add focusMode, layoutMode, and sidebarWidth to UIContext"
+git commit -m "feat: add layoutMode and focusMode to UIContext"
 ```
 
 ---
@@ -507,10 +471,11 @@ git commit -m "feat: add focusMode, layoutMode, and sidebarWidth to UIContext"
 **Step 1: Create the component**
 
 ```typescript
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useMemo } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { useUI } from '../../contexts/UIContext'
 import { useLayoutPersistence } from '../../hooks/useLayoutPersistence'
+import { useWindowSize } from '../../hooks/useWindowSize'
 import { Sidebar } from './Sidebar'
 import { TaskList } from './TaskList'
 import { TaskDetail } from './TaskDetail'
@@ -518,38 +483,51 @@ import { NoteDetail } from './NoteDetail'
 import { useVault } from '../../contexts/VaultContext'
 import type { VaultNote } from '@shared/types'
 
-const SIDEBAR_MIN_SIZE_PX = 180
-const SIDEBAR_COLLAPSED_SIZE_PX = 56
-const PANEL_MIN_SIZE_PERCENT = 20 // ~320px at common widths
+const SIDEBAR_MIN_PX = 180
+const SIDEBAR_MAX_PX = 400
+const SIDEBAR_COLLAPSED_PX = 56
+const MAIN_PANEL_MIN_PX = 320
 
 export function ResizablePanelLayout() {
-  const { selectedTaskId, layoutMode, focusMode, sidebarCollapsed, sidebarWidth, setSidebarWidth } = useUI()
+  const { selectedTaskId, layoutMode, focusMode, sidebarCollapsed } = useUI()
   const { items } = useVault()
   const { sizes, setSizes } = useLayoutPersistence()
+  const { width: windowWidth } = useWindowSize()
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
 
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
   const isNote = selectedItem?.meta.type === 'note'
 
+  const sidebarWidthPx = sidebarCollapsed ? SIDEBAR_COLLAPSED_PX : sizes.sidebarPx
+  const sidebarPercent = (sidebarWidthPx / windowWidth) * 100
+  const sidebarMinPercent = (SIDEBAR_COLLAPSED_PX / windowWidth) * 100
+  const sidebarMaxPercent = (SIDEBAR_MAX_PX / windowWidth) * 100
+
+  const mainPanelMinPercent = useMemo(() => {
+    const available = Math.max(
+      windowWidth - (layoutMode === 'full' ? sidebarWidthPx : 0),
+      MAIN_PANEL_MIN_PX
+    )
+    return Math.min(100, (MAIN_PANEL_MIN_PX / available) * 100)
+  }, [windowWidth, layoutMode, sidebarWidthPx])
+
   // Handle sidebar collapse via drag
   const handleSidebarResize = useCallback((size: number) => {
-    // Size is in percentage, convert to approximate pixels
-    const pixelWidth = (size / 100) * window.innerWidth
-
-    if (pixelWidth < SIDEBAR_MIN_SIZE_PX && pixelWidth > SIDEBAR_COLLAPSED_SIZE_PX) {
-      // Snap to collapsed
+    const pixelWidth = (size / 100) * windowWidth
+    if (pixelWidth < SIDEBAR_MIN_PX && pixelWidth > SIDEBAR_COLLAPSED_PX) {
       sidebarPanelRef.current?.collapse()
-    } else {
-      setSidebarWidth(pixelWidth)
+      return
     }
-  }, [setSidebarWidth])
+    const clamped = Math.min(Math.max(pixelWidth, SIDEBAR_MIN_PX), SIDEBAR_MAX_PX)
+    setSizes({ sidebarPx: clamped })
+  }, [setSizes, windowWidth])
 
-  const handleMainPanelResize = useCallback((sizes: number[]) => {
+  const handleMainPanelResize = useCallback((layout: number[]) => {
+    if (layout.length < 2) return
     setSizes({
-      ...sizes,
-      taskList: sizes[0],
-      taskDetail: sizes[1],
-    } as any)
+      taskListPercent: layout[0],
+      taskDetailPercent: layout[1],
+    })
   }, [setSizes])
 
   // Focus mode - show only task detail
@@ -590,13 +568,17 @@ export function ResizablePanelLayout() {
   if (layoutMode === 'compact') {
     return (
       <PanelGroup direction="horizontal" onLayout={handleMainPanelResize}>
-        <Panel defaultSize={sizes.taskList} minSize={PANEL_MIN_SIZE_PERCENT}>
+        <Panel defaultSize={sizes.taskListPercent} minSize={mainPanelMinPercent}>
           <TaskList />
         </Panel>
         {selectedTaskId && (
           <>
-            <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize" />
-            <Panel defaultSize={sizes.taskDetail} minSize={PANEL_MIN_SIZE_PERCENT}>
+            <PanelResizeHandle
+              className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
+              aria-label="Resize panels"
+              tabIndex={0}
+            />
+            <Panel defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
               {isNote ? (
                 <NoteDetail note={selectedItem as VaultNote} />
               ) : (
@@ -610,32 +592,37 @@ export function ResizablePanelLayout() {
   }
 
   // Full mode - sidebar + task list + task detail
-  const sidebarPercent = (sidebarWidth / window.innerWidth) * 100
-  const collapsedPercent = (SIDEBAR_COLLAPSED_SIZE_PX / window.innerWidth) * 100
-
   return (
     <PanelGroup direction="horizontal">
       <Panel
         ref={sidebarPanelRef}
-        defaultSize={sidebarCollapsed ? collapsedPercent : sidebarPercent}
-        minSize={collapsedPercent}
-        maxSize={25}
+        defaultSize={sidebarPercent}
+        minSize={sidebarMinPercent}
+        maxSize={sidebarMaxPercent}
         collapsible
-        collapsedSize={collapsedPercent}
+        collapsedSize={sidebarMinPercent}
         onResize={handleSidebarResize}
       >
         <Sidebar />
       </Panel>
-      <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize" />
-      <Panel minSize={PANEL_MIN_SIZE_PERCENT}>
+      <PanelResizeHandle
+        className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
+        aria-label="Resize panels"
+        tabIndex={0}
+      />
+      <Panel minSize={mainPanelMinPercent}>
         <PanelGroup direction="horizontal" onLayout={handleMainPanelResize}>
-          <Panel defaultSize={selectedTaskId ? sizes.taskList : 100} minSize={PANEL_MIN_SIZE_PERCENT}>
+          <Panel defaultSize={selectedTaskId ? sizes.taskListPercent : 100} minSize={mainPanelMinPercent}>
             <TaskList />
           </Panel>
           {selectedTaskId && (
             <>
-              <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize" />
-              <Panel defaultSize={sizes.taskDetail} minSize={PANEL_MIN_SIZE_PERCENT}>
+              <PanelResizeHandle
+                className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 transition-colors cursor-col-resize"
+                aria-label="Resize panels"
+                tabIndex={0}
+              />
+              <Panel defaultSize={sizes.taskDetailPercent} minSize={mainPanelMinPercent}>
                 {isNote ? (
                   <NoteDetail note={selectedItem as VaultNote} />
                 ) : (
@@ -675,11 +662,9 @@ git commit -m "feat: add ResizablePanelLayout component with react-resizable-pan
 ```typescript
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
 import { useUI } from '../../contexts/UIContext'
-import { useNavigation } from '../../contexts/NavigationContext'
 
 export function TitleBar() {
-  const { sidebarCollapsed, toggleSidebar, layoutMode, focusMode, toggleFocusMode, selectedTaskId } = useUI()
-  const { canGoBack, canGoForward, goBack, goForward } = useNavigation()
+  const { sidebarCollapsed, toggleSidebar, layoutMode, focusMode, toggleFocusMode, selectedTaskId, canGoBack, canGoForward, goBack, goForward } = useUI()
 
   const showBackForward = layoutMode === 'mobile' || focusMode
   const showSidebarToggle = layoutMode === 'full' && !focusMode
@@ -934,7 +919,6 @@ import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
 import { TreeDndProvider } from './contexts/TreeDndContext'
 import { HistoryProvider } from './contexts/HistoryContext'
-import { NavigationProvider } from './contexts/NavigationContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Welcome } from './components/Welcome'
 import { TitleBar } from './components/layout/TitleBar'
@@ -967,7 +951,7 @@ function MainLayout() {
 }
 ```
 
-**Step 3: Update AppContent to include NavigationProvider**
+**Step 3: Update AppContent to use MainLayout directly**
 
 ```typescript
 function AppContent() {
@@ -999,9 +983,7 @@ function AppContent() {
 
   return (
     <HistoryProvider>
-      <NavigationProvider>
-        <MainLayout />
-      </NavigationProvider>
+      <MainLayout />
     </HistoryProvider>
   )
 }
@@ -1016,154 +998,12 @@ Expected: PASS
 
 ```bash
 git add src/renderer/App.tsx
-git commit -m "feat: integrate ResizablePanelLayout and NavigationProvider in App"
+git commit -m "feat: integrate ResizablePanelLayout in App"
 ```
 
 ---
 
-## Task 10: Wire up navigation history
-
-**Files:**
-- Modify: `src/renderer/contexts/UIContext.tsx`
-
-**Step 1: Import useNavigation hook**
-
-At top of file, add:
-
-```typescript
-import { useNavigation } from './NavigationContext'
-```
-
-Note: This creates a circular dependency issue. We need to refactor slightly.
-
-**Alternative approach - use a callback pattern:**
-
-Instead, we'll have the App component wire up navigation. Modify `setSelectedView` and `setSelectedTaskId` to also push to navigation history.
-
-**Step 2: Create a wrapper hook in App.tsx**
-
-Add a new component that syncs UI state with navigation:
-
-```typescript
-function NavigationSync() {
-  const { selectedView, selectedPath, selectedTaskId, setSelectedView, setSelectedTaskId } = useUI()
-  const { navigate, current, goBack, goForward, canGoBack, canGoForward } = useNavigation()
-
-  // Push to history when selection changes
-  useEffect(() => {
-    const newState = { view: selectedView, path: selectedPath, taskId: selectedTaskId }
-    // Only push if different from current
-    if (!current ||
-        current.view !== newState.view ||
-        current.path !== newState.path ||
-        current.taskId !== newState.taskId) {
-      navigate(newState)
-    }
-  }, [selectedView, selectedPath, selectedTaskId])
-
-  // Sync UI when navigating back/forward
-  useEffect(() => {
-    if (current) {
-      // Use internal setters to avoid re-pushing to history
-      // This requires exposing internal setters - see next step
-    }
-  }, [current])
-
-  return null
-}
-```
-
-This is getting complex. Let's simplify by handling navigation directly in UIContext.
-
-**Step 3: Refactor UIContext to handle its own navigation history**
-
-Update UIContext to include navigation state internally:
-
-```typescript
-// Add to UIContext state
-const [navHistory, setNavHistory] = useState<Array<{view: ViewType, path: string | null, taskId: string | null}>>([])
-const [navIndex, setNavIndex] = useState(-1)
-
-const canGoBack = navIndex > 0
-const canGoForward = navIndex < navHistory.length - 1
-
-const setSelectedView = useCallback((view: ViewType, path?: string) => {
-  setSelectedViewState(view)
-  setSelectedPath(path || null)
-  setSelectedTaskId(null)
-
-  // Push to navigation history
-  const newState = { view, path: path || null, taskId: null }
-  setNavHistory(prev => [...prev.slice(0, navIndex + 1), newState])
-  setNavIndex(prev => prev + 1)
-}, [navIndex])
-
-const setSelectedTaskIdWithNav = useCallback((id: string | null) => {
-  setSelectedTaskId(id)
-
-  // Push to navigation history
-  const newState = { view: selectedView, path: selectedPath, taskId: id }
-  setNavHistory(prev => [...prev.slice(0, navIndex + 1), newState])
-  setNavIndex(prev => prev + 1)
-}, [navIndex, selectedView, selectedPath])
-
-const goBack = useCallback(() => {
-  if (!canGoBack) return
-  const prev = navHistory[navIndex - 1]
-  setNavIndex(navIndex - 1)
-  setSelectedViewState(prev.view)
-  setSelectedPath(prev.path)
-  setSelectedTaskId(prev.taskId)
-}, [canGoBack, navHistory, navIndex])
-
-const goForward = useCallback(() => {
-  if (!canGoForward) return
-  const next = navHistory[navIndex + 1]
-  setNavIndex(navIndex + 1)
-  setSelectedViewState(next.view)
-  setSelectedPath(next.path)
-  setSelectedTaskId(next.taskId)
-}, [canGoForward, navHistory, navIndex])
-```
-
-**Step 4: Add to provider value**
-
-```typescript
-value={{
-  // ... existing
-  canGoBack,
-  canGoForward,
-  goBack,
-  goForward,
-  setSelectedTaskId: setSelectedTaskIdWithNav,
-}}
-```
-
-**Step 5: Update TitleBar to use UIContext instead of NavigationContext**
-
-```typescript
-const { canGoBack, canGoForward, goBack, goForward, /* other values */ } = useUI()
-```
-
-**Step 6: Remove NavigationContext import from App.tsx and TitleBar**
-
-Since navigation is now in UIContext, we don't need the separate NavigationProvider.
-
-**Step 7: Run tests**
-
-Run: `npm test`
-Expected: PASS
-
-**Step 8: Commit**
-
-```bash
-git add src/renderer/contexts/UIContext.tsx src/renderer/components/layout/TitleBar.tsx src/renderer/App.tsx
-git commit -m "feat: integrate navigation history into UIContext"
-```
-
----
-
-## Task 11: Update Sidebar for draggable resize
+## Task 10: Update Sidebar for draggable resize
 
 **Files:**
 - Modify: `src/renderer/components/layout/Sidebar.tsx`
@@ -1203,7 +1043,7 @@ git commit -m "refactor: ensure Sidebar fills resizable panel container"
 
 ---
 
-## Task 12: Run full test suite and fix any issues
+## Task 11: Run full test suite and fix any issues
 
 **Step 1: Run all tests**
 
@@ -1230,7 +1070,7 @@ git commit -m "fix: resolve test and type errors from responsive layout changes"
 
 ---
 
-## Task 13: Manual testing checklist
+## Task 12: Manual testing checklist
 
 **Step 1: Start the app**
 
@@ -1241,6 +1081,7 @@ Run: `npm run electron:dev`
 - [ ] At 900px+ width: sidebar + task list + task detail visible
 - [ ] At 640-899px width: sidebar hidden, task list + task detail visible
 - [ ] At <640px width: single panel view
+- [ ] Window can resize down to 320px without layout breaking
 
 **Step 3: Test resizable panels**
 
@@ -1280,16 +1121,16 @@ git commit -m "fix: address issues found in manual testing"
 
 | Task | Description |
 |------|-------------|
+| 0 | Lower app min width for responsive modes |
 | 1 | Install react-resizable-panels |
 | 2 | Create useLayoutMode hook |
-| 3 | Create NavigationContext |
+| 3 | Add navigation history to UIContext |
 | 4 | Create useLayoutPersistence hook |
-| 5 | Update UIContext with new state |
+| 5 | Update UIContext with layoutMode + focusMode |
 | 6 | Create ResizablePanelLayout component |
 | 7 | Update TitleBar for mobile nav |
 | 8 | Update TaskDetail layout |
 | 9 | Update App.tsx |
-| 10 | Wire up navigation history |
-| 11 | Update Sidebar for resize |
-| 12 | Run full test suite |
-| 13 | Manual testing |
+| 10 | Update Sidebar for resize |
+| 11 | Run full test suite |
+| 12 | Manual testing |
