@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { VaultNote, NoteMeta } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -15,33 +15,29 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const { updateItem, deleteItem, convertItem } = useVault()
   const { setSelectedTaskId, layoutMode, focusMode, toggleFocusMode } = useUI()
   const [localNote, setLocalNote] = useState<VaultNote>(note)
-  const [editorKey, setEditorKey] = useState(0)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
 
-  useEffect(() => {
-    setLocalNote(note)
-    setEditorKey(prev => prev + 1)
-  }, [note.id])
+  // localNote tracks user edits. Component remounts when note.id changes (via Panel key),
+  // so localNote is always initialized with the current note.
+  const displayTitle = localNote.title
+  const displayContent = localNote.content || ''
 
+  // Auto-resize title textarea - use useEffect (not useLayoutEffect) to ensure
+  // the flex container has calculated its width before we measure scrollHeight
   useEffect(() => {
-    console.debug('[NoteDetail] local state', {
-      id: localNote.id,
-      title: localNote.title,
-      contentLength: localNote.content?.length ?? 0,
-      contentPreview: (localNote.content || '').slice(0, 120),
-    })
-  }, [localNote.id, localNote.title, localNote.content])
-
-  // Auto-resize title textarea
-  useLayoutEffect(() => {
     if (titleRef.current) {
-      titleRef.current.style.height = 'auto'
-      titleRef.current.style.height = titleRef.current.scrollHeight + 'px'
+      // Use requestAnimationFrame to ensure layout is complete
+      requestAnimationFrame(() => {
+        if (titleRef.current) {
+          titleRef.current.style.height = 'auto'
+          titleRef.current.style.height = titleRef.current.scrollHeight + 'px'
+        }
+      })
     }
-  }, [localNote.title])
+  }, [displayTitle])
 
   const handleSave = useCallback(async () => {
     if (localNote.title === note.title && localNote.content === note.content) return
@@ -68,10 +64,10 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
   const handleDelete = async () => {
     // Use only first line of title to avoid showing long content in confirmation
-    const displayTitle = note.title.split('\n')[0].slice(0, 100)
+    const truncatedTitle = note.title.split('\n')[0].slice(0, 100)
     const confirmed = await confirm({
       title: 'Delete Note',
-      message: `Are you sure you want to delete "${displayTitle}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${truncatedTitle}"? This action cannot be undone.`,
       confirmLabel: 'Delete',
       variant: 'danger',
     })
@@ -101,7 +97,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const showFocusToggle = layoutMode !== 'mobile'
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex items-start gap-3 mb-3">
           <div className="text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1">
@@ -112,13 +108,13 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
           <textarea
             ref={titleRef}
-            value={localNote.title}
+            value={displayTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.preventDefault()
             }}
             rows={1}
-            className="flex-1 text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white resize-none"
+            className="flex-1 text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white resize-none max-h-32 overflow-y-auto"
             placeholder="Note title..."
           />
         </div>
@@ -180,8 +176,8 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
         <div className="ml-8">
           <RichTextEditor
-            key={`${note.id}-${editorKey}`}
-            content={localNote.content || ''}
+            key={note.id}
+            content={displayContent}
             onChange={handleContentChange}
             placeholder="Write your note..."
             className="min-h-[300px]"

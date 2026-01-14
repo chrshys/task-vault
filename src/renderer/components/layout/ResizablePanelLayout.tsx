@@ -75,6 +75,7 @@ export function ResizablePanelLayout() {
             />
             <Panel
               id="taskDetail"
+              key={selectedTaskId}
               defaultSize={`${sizes.taskDetailPercent}%`}
               minSize={MAIN_PANEL_MIN_PX}
             >
@@ -115,6 +116,7 @@ export function ResizablePanelLayout() {
             />
             <Panel
               id="taskDetail"
+              key={selectedTaskId}
               defaultSize={`${sizes.taskDetailPercent}%`}
               minSize={MAIN_PANEL_MIN_PX}
             >

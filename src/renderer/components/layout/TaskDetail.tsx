@@ -12,21 +12,14 @@ import type { VaultItem, TaskMeta, RepeatConfig } from '@shared/types'
 export function TaskDetail() {
   const { items, updateItem, deleteItem, convertItem } = useVault()
   const { selectedTaskId, setSelectedTaskId, layoutMode, focusMode, toggleFocusMode } = useUI()
-  const [localItem, setLocalItem] = useState<VaultItem | null>(null)
+  const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
+  // localItem tracks user edits. Component remounts when selectedTaskId changes (via Panel key),
+  // so localItem is always initialized with the current selectedItem.
+  const [localItem, setLocalItem] = useState<VaultItem | null>(selectedItem ?? null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
-
-  const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
-
-  useEffect(() => {
-    if (!selectedItem) {
-      setLocalItem(null)
-      return
-    }
-    setLocalItem(selectedItem)
-  }, [selectedItem?.id])
 
   const handleSave = useCallback(async () => {
     if (!localItem) return
