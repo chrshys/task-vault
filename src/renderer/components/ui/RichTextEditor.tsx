@@ -66,7 +66,11 @@ function EditorToolbar({ editor }: { editor: Editor | null }) {
 
   const handleLinkSubmit = () => {
     if (linkUrl) {
-      editor.chain().focus().setLink({ href: linkUrl }).run()
+      let url = linkUrl.trim()
+      if (url && !/^https?:\/\//i.test(url)) {
+        url = `https://${url}`
+      }
+      editor.chain().focus().setLink({ href: url }).run()
     }
     setLinkUrl('')
     setShowLinkInput(false)

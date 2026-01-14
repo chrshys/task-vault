@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import path from 'path'
 import { registerIpcHandlers } from './ipc'
 import { watchVault, stopWatching, getVaultPath } from './services/file-service'
@@ -25,6 +25,24 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
+
+  // Handle links with target="_blank" - open in system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  // Handle navigation to external URLs - open in system browser
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const appUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5173'
+      : `file://${path.join(__dirname, '../renderer/index.html')}`
+
+    if (!url.startsWith(appUrl)) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && getVaultPath()) {

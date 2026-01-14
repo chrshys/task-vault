@@ -44,9 +44,11 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
   const handleDelete = async () => {
     contextMenu.close()
+    // Use only first line of title to avoid showing long content in confirmation
+    const displayTitle = item.title.split('\n')[0].slice(0, 100)
     const confirmed = await confirm({
       title: 'Delete Task',
-      message: `Are you sure you want to delete "${item.title}"?`,
+      message: `Are you sure you want to delete "${displayTitle}"?`,
       confirmLabel: 'Delete',
       variant: 'danger',
     })

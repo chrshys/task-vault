@@ -52,9 +52,11 @@ export function NoteDetail({ note }: NoteDetailProps) {
   }, [title, content, handleSave])
 
   const handleDelete = async () => {
+    // Use only first line of title to avoid showing long content in confirmation
+    const displayTitle = note.title.split('\n')[0].slice(0, 100)
     const confirmed = await confirm({
       title: 'Delete Note',
-      message: `Are you sure you want to delete "${note.title}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${displayTitle}"? This action cannot be undone.`,
       confirmLabel: 'Delete',
       variant: 'danger',
     })

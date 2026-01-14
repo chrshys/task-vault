@@ -21,8 +21,24 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <TaskRow item={item} onToggleComplete={onToggleComplete} />
+    <div ref={setNodeRef} style={style} className="group flex items-center">
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex-shrink-0 w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="6" r="1.5" />
+          <circle cx="15" cy="6" r="1.5" />
+          <circle cx="9" cy="12" r="1.5" />
+          <circle cx="15" cy="12" r="1.5" />
+          <circle cx="9" cy="18" r="1.5" />
+          <circle cx="15" cy="18" r="1.5" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <TaskRow item={item} onToggleComplete={onToggleComplete} />
+      </div>
     </div>
   )
 }

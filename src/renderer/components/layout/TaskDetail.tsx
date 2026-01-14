@@ -20,8 +20,8 @@ export function TaskDetail() {
   const selectedItem = selectedTaskId ? items.get(selectedTaskId) : null
   const [prevSelectedItem, setPrevSelectedItem] = useState(selectedItem)
 
-  // Reset local state when selected item changes
-  if (selectedItem !== prevSelectedItem) {
+  // Reset local state when selected item changes or on initial mount
+  if (selectedItem !== prevSelectedItem || (selectedItem && !localItem)) {
     setPrevSelectedItem(selectedItem)
     setLocalItem(selectedItem || null)
   }
@@ -39,9 +39,11 @@ export function TaskDetail() {
 
   const handleDelete = async () => {
     if (!selectedItem) return
+    // Use only first line of title to avoid showing long content in confirmation
+    const displayTitle = selectedItem.title.split('\n')[0].slice(0, 100)
     const confirmed = await confirm({
       title: 'Delete Task',
-      message: `Are you sure you want to delete "${selectedItem.title}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${displayTitle}"? This action cannot be undone.`,
       confirmLabel: 'Delete',
       variant: 'danger',
     })
