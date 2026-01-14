@@ -235,13 +235,7 @@ export function RichTextEditor({
   })
 
   useEffect(() => {
-    if (!editor) return
-    console.debug('[RichTextEditor] setContent', {
-      contentLength: content.length,
-      contentPreview: content.slice(0, 120),
-      currentLength: editor.getHTML().length,
-    })
-    if (content !== editor.getHTML()) {
+    if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content)
     }
   }, [content, editor])

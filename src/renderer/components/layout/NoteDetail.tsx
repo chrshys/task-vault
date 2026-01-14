@@ -15,19 +15,15 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const { updateItem, deleteItem, convertItem } = useVault()
   const { setSelectedTaskId, layoutMode, focusMode, toggleFocusMode } = useUI()
   const [localNote, setLocalNote] = useState<VaultNote>(note)
+  const [editorKey, setEditorKey] = useState(0)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
 
   useEffect(() => {
-    console.debug('[NoteDetail] selection', {
-      id: note.id,
-      title: note.title,
-      contentLength: note.content?.length ?? 0,
-      contentPreview: (note.content || '').slice(0, 120),
-    })
     setLocalNote(note)
+    setEditorKey(prev => prev + 1)
   }, [note.id])
 
   useEffect(() => {
@@ -184,7 +180,7 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
         <div className="ml-8">
           <RichTextEditor
-            key={note.id}
+            key={`${note.id}-${editorKey}`}
             content={localNote.content || ''}
             onChange={handleContentChange}
             placeholder="Write your note..."
