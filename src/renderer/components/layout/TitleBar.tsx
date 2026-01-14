@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useUI } from '../../contexts/UIContext'
 
 export function TitleBar() {
@@ -7,8 +7,6 @@ export function TitleBar() {
     toggleSidebar,
     layoutMode,
     focusMode,
-    toggleFocusMode,
-    selectedTaskId,
     canGoBack,
     canGoForward,
     goBack,
@@ -17,7 +15,6 @@ export function TitleBar() {
 
   const showBackForward = layoutMode === 'mobile' || focusMode
   const showSidebarToggle = layoutMode === 'full' && !focusMode
-  const showFocusToggle = selectedTaskId && layoutMode !== 'mobile'
 
   return (
     <div
@@ -69,20 +66,7 @@ export function TitleBar() {
         )}
       </div>
 
-      {/* Right side: focus mode toggle */}
-      <div className="flex items-center gap-2">
-        {showFocusToggle && (
-          <button
-            onClick={toggleFocusMode}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title={focusMode ? 'Exit focus mode' : 'Enter focus mode'}
-          >
-            {focusMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
-        )}
-        {!showFocusToggle && <div className="w-8" />}
-      </div>
+      <div className="w-8" />
     </div>
   )
 }
