@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Plus, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -7,11 +7,12 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { SectionHeader } from './SectionHeader'
 import type { TreeNode } from '@shared/types'
 
 export function Sidebar() {
-  const { tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject } = useVault()
-  const { selectedView, selectedPath, setSelectedView, sidebarCollapsed } = useUI()
+  const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, setProjectSection, renameSection, deleteSection } = useVault()
+  const { selectedView, selectedPath, setSelectedView, sidebarCollapsed, toggleSectionCollapse, isSectionCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
   const [showNewProject, setShowNewProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
@@ -20,6 +21,11 @@ export function Sidebar() {
   const [deleteConfirm, setDeleteConfirm] = useState<{open: boolean, node: TreeNode | null}>({open: false, node: null})
   const [editingProject, setEditingProject] = useState<{node: TreeNode, name: string} | null>(null)
   const editingProjectRef = useRef<{node: TreeNode, name: string} | null>(null)
+  const [addingToSection, setAddingToSection] = useState<string | null>(null)
+  const [editingSection, setEditingSection] = useState<{name: string, newName: string} | null>(null)
+  const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{open: boolean, name: string | null}>({open: false, name: null})
+  const sectionContextMenu = useContextMenu<string>()
+  const sectionEditInputRef = useRef<HTMLInputElement>(null)
   const listsPopoverRef = useRef<HTMLDivElement>(null)
   const addButtonRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
@@ -82,22 +88,6 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [renameProject, selectedPath, setSelectedView])
 
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return
-    await createProject(newProjectName.trim())
-    setNewProjectName('')
-    setShowNewProject(false)
-  }
-
-  const handleProjectKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCreateProject()
-    } else if (e.key === 'Escape') {
-      setNewProjectName('')
-      setShowNewProject(false)
-    }
-  }
-
   const handleDeleteProject = async () => {
     if (!deleteConfirm.node || deleteConfirm.node.type !== 'project') return
     await deleteProject(deleteConfirm.node.path)
@@ -141,6 +131,36 @@ export function Sidebar() {
     }
   }
 
+  const handleCreateProjectInSection = async (sectionName: string) => {
+    if (!newProjectName.trim()) return
+    const project = await createProject(newProjectName.trim())
+    if (sectionName) {
+      const projectPath = project.path.replace(/\/_project\.md$/, '')
+      await setProjectSection(projectPath, sectionName)
+    }
+    setNewProjectName('')
+    setAddingToSection(null)
+  }
+
+  const handleStartSectionRename = (name: string) => {
+    setEditingSection({ name, newName: name })
+  }
+
+  const handleSectionRenameSubmit = async () => {
+    if (!editingSection) return
+    const { name, newName } = editingSection
+    setEditingSection(null)
+    if (newName.trim() && newName !== name) {
+      await renameSection(name, newName.trim())
+    }
+  }
+
+  const handleDeleteSection = async () => {
+    if (!deleteSectionConfirm.name) return
+    await deleteSection(deleteSectionConfirm.name)
+    setDeleteSectionConfirm({open: false, name: null})
+  }
+
   // Focus edit input only when editing starts (not on every keystroke)
   const editingNodeId = editingProject?.node.id
   const prevEditingNodeIdRef = useRef<string | undefined>(undefined)
@@ -151,6 +171,14 @@ export function Sidebar() {
     }
     prevEditingNodeIdRef.current = editingNodeId
   }, [editingNodeId])
+
+  // Focus section edit input
+  useEffect(() => {
+    if (editingSection && sectionEditInputRef.current) {
+      sectionEditInputRef.current.focus()
+      sectionEditInputRef.current.select()
+    }
+  }, [editingSection])
 
   // Inbox drop zone component (expanded view)
   const InboxDropZone = () => {
@@ -429,65 +457,71 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <div className="flex items-center justify-between px-3 mb-2">
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              Projects
-            </p>
-            <div ref={addButtonRef} className="relative">
-              <button
-                onClick={() => setShowNewProject(!showNewProject)}
-                className={`p-1 -m-1 rounded transition-colors ${
-                  showNewProject
-                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
-                    : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
-                }`}
-                title="New project"
-              >
-                <Plus size={12} strokeWidth={2.5} />
-              </button>
-              {showNewProject && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
-                  <div className="px-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <ListTodo size={14} className="text-gray-400 dark:text-gray-500" />
-                      <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Project</span>
-                    </div>
-                    <input
-                      type="text"
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      onKeyDown={handleProjectKeyDown}
-                      placeholder="Project name..."
-                      className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-2 mt-2">
-                      <button
-                        onClick={() => { setShowNewProject(false); setNewProjectName('') }}
-                        className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleCreateProject}
-                        disabled={!newProjectName.trim()}
-                        className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Create
-                      </button>
-                    </div>
-                  </div>
+          {sections.map((section) => (
+            <div key={section.name} className="mb-4">
+              {editingSection?.name === section.name ? (
+                <div className="flex items-center px-3 mb-2">
+                  <input
+                    ref={sectionEditInputRef}
+                    type="text"
+                    value={editingSection.newName}
+                    onChange={(e) => setEditingSection({ ...editingSection, newName: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSectionRenameSubmit()
+                      } else if (e.key === 'Escape') {
+                        setEditingSection(null)
+                      }
+                    }}
+                    onBlur={handleSectionRenameSubmit}
+                    className="flex-1 px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-white dark:bg-gray-800 border border-blue-500 rounded text-gray-700 dark:text-gray-300 outline-none"
+                  />
+                </div>
+              ) : (
+                <SectionHeader
+                  name={section.name}
+                  isDefault={section.isDefault}
+                  isCollapsed={isSectionCollapsed(section.name)}
+                  onToggleCollapse={() => toggleSectionCollapse(section.name)}
+                  onAddProject={() => setAddingToSection(section.isDefault ? '' : section.name)}
+                  onContextMenu={(e) => sectionContextMenu.open(e, section.name)}
+                />
+              )}
+
+              {/* New project input for this section */}
+              {addingToSection === (section.isDefault ? '' : section.name) && (
+                <div className="px-3 mb-2">
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCreateProjectInSection(section.isDefault ? '' : section.name)
+                      } else if (e.key === 'Escape') {
+                        setAddingToSection(null)
+                        setNewProjectName('')
+                      }
+                    }}
+                    placeholder="Project name..."
+                    className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {/* Projects in this section */}
+              {!isSectionCollapsed(section.name) && (
+                <div className="space-y-0.5">
+                  {section.projects.map((node) => (
+                    editingProject?.node.id === node.id
+                      ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                      : <ProjectItem key={node.id} node={node} />
+                  ))}
                 </div>
               )}
             </div>
-          </div>
-          <div className="space-y-0.5">
-            {tree.map((node) => (
-              editingProject?.node.id === node.id
-                ? <div key={node.id}>{renderProjectEditInput(node)}</div>
-                : <ProjectItem key={node.id} node={node} />
-            ))}
-          </div>
+          ))}
         </div>
       </div>
 
@@ -568,6 +602,29 @@ export function Sidebar() {
         variant="danger"
         onConfirm={handleDeleteProject}
         onCancel={() => setDeleteConfirm({open: false, node: null})}
+      />
+
+      {sectionContextMenu.isOpen && sectionContextMenu.data && (
+        <ContextMenu x={sectionContextMenu.x} y={sectionContextMenu.y} onClose={sectionContextMenu.close}>
+          <ContextMenuItem onClick={() => {
+            handleStartSectionRename(sectionContextMenu.data!)
+            sectionContextMenu.close()
+          }}>Rename</ContextMenuItem>
+          <ContextMenuItem variant="danger" onClick={() => {
+            setDeleteSectionConfirm({open: true, name: sectionContextMenu.data})
+            sectionContextMenu.close()
+          }}>Delete</ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      <ConfirmDialog
+        open={deleteSectionConfirm.open}
+        title="Delete Section"
+        message={`Delete section "${deleteSectionConfirm.name}"? Projects will move to the default section.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteSection}
+        onCancel={() => setDeleteSectionConfirm({open: false, name: null})}
       />
     </div>
   )
