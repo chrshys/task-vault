@@ -14,21 +14,15 @@ interface NoteDetailProps {
 export function NoteDetail({ note }: NoteDetailProps) {
   const { updateItem, deleteItem, convertItem } = useVault()
   const { setSelectedTaskId, layoutMode, focusMode, toggleFocusMode } = useUI()
-  const [title, setTitle] = useState(note.title)
-  const [content, setContent] = useState(note.content || '')
+  const [localNote, setLocalNote] = useState<VaultNote>(note)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
-  const [prevNoteId, setPrevNoteId] = useState(note.id)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
 
   useEffect(() => {
-    if (note.id !== prevNoteId) {
-      setPrevNoteId(note.id)
-    }
-    setTitle(note.title)
-    setContent(note.content || '')
-  }, [note.id, note.title, note.content, prevNoteId])
+    setLocalNote(note)
+  }, [note.id])
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
@@ -36,22 +30,30 @@ export function NoteDetail({ note }: NoteDetailProps) {
       titleRef.current.style.height = 'auto'
       titleRef.current.style.height = titleRef.current.scrollHeight + 'px'
     }
-  }, [title])
+  }, [localNote.title])
 
   const handleSave = useCallback(async () => {
-    if (title === note.title && content === note.content) return
+    if (localNote.title === note.title && localNote.content === note.content) return
     await updateItem({
       ...note,
-      title,
-      content,
+      title: localNote.title,
+      content: localNote.content,
       meta: { ...note.meta, modified: new Date().toISOString() } as NoteMeta,
     })
-  }, [note, title, content, updateItem])
+  }, [note, localNote, updateItem])
 
   useEffect(() => {
     const timer = setTimeout(handleSave, 300)
     return () => clearTimeout(timer)
-  }, [title, content, handleSave])
+  }, [localNote, handleSave])
+
+  const handleTitleChange = (nextTitle: string) => {
+    setLocalNote(prev => ({ ...prev, title: nextTitle }))
+  }
+
+  const handleContentChange = (nextContent: string) => {
+    setLocalNote(prev => ({ ...prev, content: nextContent }))
+  }
 
   const handleDelete = async () => {
     // Use only first line of title to avoid showing long content in confirmation
@@ -99,8 +101,8 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
           <textarea
             ref={titleRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={localNote.title}
+            onChange={(e) => handleTitleChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.preventDefault()
             }}
@@ -168,8 +170,8 @@ export function NoteDetail({ note }: NoteDetailProps) {
         <div className="ml-8">
           <RichTextEditor
             key={note.id}
-            content={content}
-            onChange={setContent}
+            content={localNote.content || ''}
+            onChange={handleContentChange}
             placeholder="Write your note..."
             className="min-h-[300px]"
           />
