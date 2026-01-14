@@ -16,9 +16,17 @@ export function NoteDetail({ note }: NoteDetailProps) {
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState(note.content || '')
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [prevNoteId, setPrevNoteId] = useState(note.id)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const { confirm, dialogProps } = useConfirm()
+
+  // Reset local state when note changes
+  if (note.id !== prevNoteId) {
+    setPrevNoteId(note.id)
+    setTitle(note.title)
+    setContent(note.content || '')
+  }
 
   // Auto-resize title textarea
   useLayoutEffect(() => {
@@ -27,11 +35,6 @@ export function NoteDetail({ note }: NoteDetailProps) {
       titleRef.current.style.height = titleRef.current.scrollHeight + 'px'
     }
   }, [title])
-
-  useEffect(() => {
-    setTitle(note.title)
-    setContent(note.content || '')
-  }, [note.id])
 
   const handleSave = useCallback(async () => {
     if (title === note.title && content === note.content) return

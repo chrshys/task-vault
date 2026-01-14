@@ -92,7 +92,7 @@ export async function watchVault(mainWindow: BrowserWindow): Promise<void> {
   }
 
   watcher = chokidar.watch(path.join(vaultPath, '**/*.md'), {
-    ignored: /(^|[\/\\])\../,
+    ignored: /(^|[/\\])\../,
     persistent: true,
     ignoreInitial: true,
   })

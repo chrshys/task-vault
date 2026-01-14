@@ -700,7 +700,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (item.meta.type === 'project') {
           const projectMeta = item.meta as ProjectMeta
           if (projectMeta.section === sectionName) {
-            const { section, ...restMeta } = projectMeta
+            const { section: _section, ...restMeta } = projectMeta
             const updatedItem: VaultItem = {
               ...item,
               meta: { ...restMeta, modified: new Date().toISOString() } as ProjectMeta,
@@ -720,7 +720,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await window.api.writeFile(item.path, item)
     }
     await persistSectionOrder(nextSections, updatedItems ?? new Map(items))
-  }, [items, persistSectionOrder, rebuildSections, sectionOrder])
+  }, [defaultSectionName, items, persistSectionOrder, rebuildSections, sectionOrder])
 
   const getAllSectionNames = useCallback((): string[] => {
     const names = new Set<string>()

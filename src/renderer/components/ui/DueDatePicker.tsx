@@ -25,6 +25,7 @@ export function DueDatePicker({
   const [viewDate, setViewDate] = useState(() => dueDate || new Date())
   const [timeExpanded, setTimeExpanded] = useState(false)
   const [repeatExpanded, setRepeatExpanded] = useState(false)
+  const [prevDueDate, setPrevDueDate] = useState(dueDate)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Extract time from dueDate
@@ -32,11 +33,13 @@ export function DueDatePicker({
   const hours = dueDate?.getHours() ?? 9
   const minutes = dueDate?.getMinutes() ?? 0
 
-  useEffect(() => {
+  // Sync viewDate when dueDate changes
+  if (dueDate !== prevDueDate) {
+    setPrevDueDate(dueDate)
     if (dueDate) {
       setViewDate(dueDate)
     }
-  }, [dueDate])
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -77,11 +80,12 @@ export function DueDatePicker({
         date.setDate(date.getDate() + 7)
         onDateChange(date)
         break
-      case 'evening':
+      case 'evening': {
         const eveningDate = dueDate ? new Date(dueDate) : date
         eveningDate.setHours(18, 0, 0, 0)
         onDateChange(eveningDate)
         break
+      }
     }
   }
 
@@ -212,10 +216,8 @@ export function DueDatePicker({
   }
 
   // Next month days
-  let nextMonthDay = 1
   while (week.length < 7 && week.length > 0) {
     week.push(null)
-    nextMonthDay++
   }
   if (week.length > 0) {
     weeks.push(week)

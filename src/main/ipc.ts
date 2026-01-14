@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
-import type { AppSettings, VaultConfig, VaultItem } from '../shared/types'
+import type { AppSettings, VaultConfig, VaultItem, ItemType } from '../shared/types'
 import * as fileService from './services/file-service'
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json')
@@ -76,7 +76,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('file:create', async (_event, { type, folder, title }: { type: string; folder: string; title: string }) => {
-    return fileService.createFile(type as any, folder, title)
+    return fileService.createFile(type as ItemType, folder, title)
   })
 
   ipcMain.handle('file:delete', async (_event, filePath: string) => {
