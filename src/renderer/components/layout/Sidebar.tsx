@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { CalendarDays, CalendarRange, Inbox, ListTodo, List, Settings, Sun, Moon, Monitor, FolderPlus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -11,7 +11,7 @@ import { SectionHeader } from './SectionHeader'
 import type { TreeNode } from '@shared/types'
 
 export function Sidebar() {
-  const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, setProjectSection, renameSection, deleteSection } = useVault()
+  const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, setProjectSection, renameSection, deleteSection, getAllSectionNames } = useVault()
   const { selectedView, selectedPath, setSelectedView, sidebarCollapsed, toggleSectionCollapse, isSectionCollapsed } = useUI()
   const { theme, setTheme } = useTheme()
   const [showNewProject, setShowNewProject] = useState(false)
@@ -24,6 +24,8 @@ export function Sidebar() {
   const [addingToSection, setAddingToSection] = useState<string | null>(null)
   const [editingSection, setEditingSection] = useState<{name: string, newName: string} | null>(null)
   const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{open: boolean, name: string | null}>({open: false, name: null})
+  const [showNewSection, setShowNewSection] = useState(false)
+  const [newSectionName, setNewSectionName] = useState('')
   const sectionContextMenu = useContextMenu<string>()
   const sectionEditInputRef = useRef<HTMLInputElement>(null)
   const listsPopoverRef = useRef<HTMLDivElement>(null)
@@ -159,6 +161,26 @@ export function Sidebar() {
     if (!deleteSectionConfirm.name) return
     await deleteSection(deleteSectionConfirm.name)
     setDeleteSectionConfirm({open: false, name: null})
+  }
+
+  const validateSectionName = (name: string): string | null => {
+    const trimmed = name.trim()
+    if (!trimmed) return 'Section name cannot be empty'
+    if (trimmed.toLowerCase() === 'projects') return '"Projects" is reserved'
+    const existing = getAllSectionNames()
+    if (existing.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+      return 'Section already exists'
+    }
+    return null
+  }
+
+  const handleCreateNewSection = () => {
+    const error = validateSectionName(newSectionName)
+    if (!error) {
+      setAddingToSection(newSectionName.trim())
+      setShowNewSection(false)
+      setNewSectionName('')
+    }
   }
 
   // Focus edit input only when editing starts (not on every keystroke)
@@ -522,6 +544,55 @@ export function Sidebar() {
               )}
             </div>
           ))}
+
+          {/* New Section button/form */}
+          {showNewSection ? (
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-2 mb-2">
+                <FolderPlus size={14} className="text-gray-400 dark:text-gray-500" />
+                <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">New Section</span>
+              </div>
+              <input
+                type="text"
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateNewSection()
+                  } else if (e.key === 'Escape') {
+                    setShowNewSection(false)
+                    setNewSectionName('')
+                  }
+                }}
+                placeholder="Section name..."
+                className="w-full px-2.5 py-1.5 text-[13px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  onClick={() => { setShowNewSection(false); setNewSectionName('') }}
+                  className="px-2.5 py-1 text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateNewSection}
+                  disabled={!!validateSectionName(newSectionName)}
+                  className="px-2.5 py-1 text-[12px] font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowNewSection(true)}
+              className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              <FolderPlus size={14} />
+              <span>New Section</span>
+            </button>
+          )}
         </div>
       </div>
 
