@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import type { ViewType } from '@shared/types'
 import { useWindowSize } from '../hooks/useWindowSize'
+import { useLayoutMode, type LayoutMode } from '../hooks/useLayoutMode'
 
-const SIDEBAR_COLLAPSE_BREAKPOINT = 1024
 const COLLAPSED_SECTIONS_KEY = 'sidebar-sections-collapsed'
 
 function loadCollapsedSections(vaultPath: string | null): Set<string> {
@@ -36,12 +36,15 @@ interface UIContextValue {
   sidebarCollapsed: boolean
   sidebarManuallyCollapsed: boolean
   windowWidth: number
+  layoutMode: LayoutMode
+  focusMode: boolean
   showQuickAdd: boolean
   quickAddType: 'task' | 'note'
   collapsedSections: Set<string>
   setSelectedView: (view: ViewType, path?: string) => void
   setSelectedTaskId: (id: string | null) => void
   toggleSidebar: () => void
+  toggleFocusMode: () => void
   canGoBack: boolean
   canGoForward: boolean
   goBack: () => void
@@ -67,9 +70,11 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   const [navHistory, setNavHistory] = useState<NavigationState[]>([])
   const [navIndex, setNavIndex] = useState(-1)
   const suppressNavRef = useRef(false)
+  const [focusMode, setFocusMode] = useState(false)
 
   const { width: windowWidth } = useWindowSize()
-  const sidebarCollapsed = sidebarManuallyCollapsed || windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT
+  const sidebarCollapsed = sidebarManuallyCollapsed
+  const layoutMode = useLayoutMode()
 
   // Load collapsed sections when vault changes
   useEffect(() => {
@@ -128,6 +133,16 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     setSidebarManuallyCollapsed(prev => !prev)
   }, [])
 
+  useEffect(() => {
+    if (layoutMode === 'mobile') {
+      setFocusMode(false)
+    }
+  }, [layoutMode])
+
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode(prev => !prev)
+  }, [])
+
   const toggleSectionCollapse = useCallback((sectionName: string) => {
     setCollapsedSections(prev => {
       const next = new Set(prev)
@@ -162,12 +177,15 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
         sidebarCollapsed,
         sidebarManuallyCollapsed,
         windowWidth,
+        layoutMode,
+        focusMode,
         showQuickAdd,
         quickAddType,
         collapsedSections,
         setSelectedView,
         setSelectedTaskId: setSelectedTaskIdWithNav,
         toggleSidebar,
+        toggleFocusMode,
         canGoBack,
         canGoForward,
         goBack,
