@@ -192,6 +192,9 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
   const validateSectionName = (name: string): string | null => {
     const trimmed = name.trim()
     if (!trimmed) return 'Section name cannot be empty'
+    if (trimmed === DEFAULT_SECTION_KEY || trimmed.startsWith('__')) {
+      return 'Section name is reserved'
+    }
     const existing = getAllSectionNames()
     if (existing.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
       return 'Section already exists'
