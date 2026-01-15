@@ -36,6 +36,11 @@ export const api = {
     ipcRenderer.on('file:deleted', listener)
     return () => ipcRenderer.removeListener('file:deleted', listener)
   },
+  onReminderClicked: (callback: (data: { taskId: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { taskId: string }) => callback(data)
+    ipcRenderer.on('reminder:clicked', listener)
+    return () => ipcRenderer.removeListener('reminder:clicked', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
