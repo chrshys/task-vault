@@ -7,7 +7,7 @@ console.log('[Reminders] Module loaded')
 type ReminderTask = VaultItem & { meta: TaskMeta }
 
 let mainWindowRef: BrowserWindow | null = null
-const timers = new Map<string, NodeJS.Timeout>()
+const timers = new Map<string, NodeJS.Timeout[]>()
 
 function checkNotificationPermissions(): void {
   console.log('[Reminders] Notification.isSupported():', Notification.isSupported())
@@ -98,9 +98,9 @@ export function scheduleReminder(task: ReminderTask): void {
 }
 
 export function cancelReminder(taskId: string): void {
-  const timer = timers.get(taskId)
-  if (timer) {
-    clearTimeout(timer)
+  const taskTimers = timers.get(taskId)
+  if (taskTimers) {
+    taskTimers.forEach(timer => clearTimeout(timer))
     timers.delete(taskId)
   }
 }
