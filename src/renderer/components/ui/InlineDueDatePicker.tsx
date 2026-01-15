@@ -195,7 +195,6 @@ export function InlineDueDatePicker({
     onDateChange(null)
     onRepeatChange(null)
     onRemindersChange([])
-    onClose()
   }
 
   const prevMonth = () => {
@@ -255,6 +254,7 @@ export function InlineDueDatePicker({
     <div
       ref={containerRef}
       className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+      onClick={(e) => e.stopPropagation()}
       style={{
         top: dropdownPosition.top,
         left: dropdownPosition.left,

@@ -182,7 +182,6 @@ export function DueDatePicker({
     onDateChange(null)
     onRepeatChange(null)
     onRemindersChange([])
-    setIsOpen(false)
   }
 
   const prevMonth = () => {

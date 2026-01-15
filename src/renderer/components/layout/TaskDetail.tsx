@@ -78,26 +78,44 @@ export function TaskDetail() {
   }
 
   const handleDueChange = (due: string) => {
-    if (!localItem || localItem.meta.type !== 'task') return
-    setLocalItem({
-      ...localItem,
-      meta: { ...localItem.meta, due: due || undefined } as TaskMeta,
+    setLocalItem(prev => {
+      if (!prev || prev.meta.type !== 'task') return prev
+      const { due: _due, ...restMeta } = prev.meta as TaskMeta
+      return {
+        ...prev,
+        meta: {
+          ...restMeta,
+          ...(due ? { due } : {}),
+        } as TaskMeta,
+      }
     })
   }
 
   const handleRepeatChange = (repeat: RepeatConfig | null) => {
-    if (!localItem || localItem.meta.type !== 'task') return
-    setLocalItem({
-      ...localItem,
-      meta: { ...localItem.meta, repeat } as TaskMeta,
+    setLocalItem(prev => {
+      if (!prev || prev.meta.type !== 'task') return prev
+      const { repeat: _repeat, ...restMeta } = prev.meta as TaskMeta
+      return {
+        ...prev,
+        meta: {
+          ...restMeta,
+          ...(repeat ? { repeat } : {}),
+        } as TaskMeta,
+      }
     })
   }
 
   const handleRemindersChange = (reminders: number[]) => {
-    if (!localItem || localItem.meta.type !== 'task') return
-    setLocalItem({
-      ...localItem,
-      meta: { ...localItem.meta, reminders } as TaskMeta,
+    setLocalItem(prev => {
+      if (!prev || prev.meta.type !== 'task') return prev
+      const { reminders: _reminders, ...restMeta } = prev.meta as TaskMeta
+      return {
+        ...prev,
+        meta: {
+          ...restMeta,
+          ...(reminders.length > 0 ? { reminders } : {}),
+        } as TaskMeta,
+      }
     })
   }
 

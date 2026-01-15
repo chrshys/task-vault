@@ -73,11 +73,12 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
   const handleDateChange = async (date: Date | null) => {
     if (!isTask) return
+    const { due: _due, ...restMeta } = item.meta as TaskMeta
     const updatedItem: VaultItem = {
       ...item,
       meta: {
-        ...item.meta,
-        due: date?.toISOString(),
+        ...restMeta,
+        ...(date ? { due: date.toISOString() } : {}),
       } as TaskMeta,
     }
     await updateItem(updatedItem)
@@ -85,11 +86,12 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
   const handleRepeatChange = async (newRepeat: RepeatConfig | null) => {
     if (!isTask) return
+    const { repeat: _repeat, ...restMeta } = item.meta as TaskMeta
     const updatedItem: VaultItem = {
       ...item,
       meta: {
-        ...item.meta,
-        repeat: newRepeat,
+        ...restMeta,
+        ...(newRepeat ? { repeat: newRepeat } : {}),
       } as TaskMeta,
     }
     await updateItem(updatedItem)
@@ -97,11 +99,12 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
   const handleRemindersChange = async (newReminders: number[]) => {
     if (!isTask) return
+    const { reminders: _reminders, ...restMeta } = item.meta as TaskMeta
     const updatedItem: VaultItem = {
       ...item,
       meta: {
-        ...item.meta,
-        reminders: newReminders,
+        ...restMeta,
+        ...(newReminders.length > 0 ? { reminders: newReminders } : {}),
       } as TaskMeta,
     }
     await updateItem(updatedItem)
