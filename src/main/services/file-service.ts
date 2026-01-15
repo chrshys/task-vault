@@ -4,6 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import type { ItemType, VaultItem, VaultConfig, ProjectMeta, TaskMeta, NoteMeta } from '../../shared/types'
 import { parseFile, serializeFile } from '../utils/frontmatter'
+import * as reminderService from './reminder-service'
 import { generateId } from '../utils/id'
 import { createFilename } from '../utils/slug'
 
@@ -147,6 +148,7 @@ export async function watchVault(mainWindow: BrowserWindow): Promise<void> {
     if (item) {
       updateTrackedMtime(filePath, stat.mtimeMs)
       mainWindow.webContents.send('file:changed', item)
+      reminderService.handleFileChange(item)
     }
   })
 
@@ -160,6 +162,7 @@ export async function watchVault(mainWindow: BrowserWindow): Promise<void> {
     if (item) {
       updateTrackedMtime(filePath, stat.mtimeMs)
       mainWindow.webContents.send('file:added', item)
+      reminderService.handleFileChange(item)
     }
   })
 
@@ -167,6 +170,12 @@ export async function watchVault(mainWindow: BrowserWindow): Promise<void> {
     if (isOwnWrite(filePath)) return
     clearTrackedMtime(filePath)
     mainWindow.webContents.send('file:deleted', filePath)
+    // Extract task ID from path for reminder cancellation
+    const filename = path.basename(filePath, '.md')
+    const idMatch = filename.match(/^([a-z0-9]{4})-/)
+    if (idMatch) {
+      reminderService.handleFileDelete(idMatch[1])
+    }
   })
 }
 
