@@ -219,7 +219,7 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   }, [collapsedSections])
 
   const setSelectedSection = useCallback((sectionName: string | null) => {
-    if (sectionName) {
+    if (sectionName !== null) {
       setSelectedViewState('section')
       setSelectedPath(null) // Clear project selection
       setSelectedSectionName(sectionName)
