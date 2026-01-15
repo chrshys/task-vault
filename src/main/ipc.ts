@@ -65,7 +65,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   })
 
   ipcMain.handle('vault:load', async (_event, folderPath: string) => {
+    console.log('[IPC] vault:load called for:', folderPath)
     const items = await fileService.loadVault(folderPath)
+    console.log(`[IPC] Loaded ${items.length} items, calling reminderService.initialize`)
     reminderService.initialize(items)
     if (mainWindowRef) {
       await fileService.watchVault(mainWindowRef)
