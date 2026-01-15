@@ -1,3 +1,9 @@
+/**
+ * Key used to identify the default section.
+ * Using a dedicated constant instead of empty string to avoid falsy-check bugs.
+ */
+export const DEFAULT_SECTION_KEY = '__default__'
+
 export type ItemType = 'project' | 'task' | 'note'
 export type TaskStatus = 'pending' | 'completed'
 export type RepeatFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
