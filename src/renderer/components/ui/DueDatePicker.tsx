@@ -30,6 +30,7 @@ export function DueDatePicker({
   const [viewDate, setViewDate] = useState(() => dueDate || new Date())
   const [timeExpanded, setTimeExpanded] = useState(false)
   const [repeatExpanded, setRepeatExpanded] = useState(false)
+  const [reminderExpanded, setReminderExpanded] = useState(false)
   const [prevDueDate, setPrevDueDate] = useState(dueDate)
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -152,6 +153,18 @@ export function DueDatePicker({
     if (dueDate) {
       setDateWithTime(dueDate, null)
     }
+  }
+
+  const handleReminderToggle = (offset: number) => {
+    if (reminders.includes(offset)) {
+      onRemindersChange(reminders.filter(r => r !== offset))
+    } else {
+      onRemindersChange([...reminders, offset].sort((a, b) => a - b))
+    }
+  }
+
+  const handleClearReminders = () => {
+    onRemindersChange([])
   }
 
   const handleFrequencyChange = (frequency: RepeatFrequency) => {
@@ -481,6 +494,61 @@ export function DueDatePicker({
               </div>
             )}
           </div>
+
+          {/* Reminder section - only show when time is set */}
+          {hasTime && (
+            <div className="border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setReminderExpanded(!reminderExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Remind me</span>
+                  {reminders.length > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {reminders.length} set
+                    </span>
+                  )}
+                </div>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${reminderExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              {reminderExpanded && (
+                <div className="px-4 pb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {REMINDER_OFFSETS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleReminderToggle(value)}
+                        className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                          reminders.includes(value)
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {reminders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearReminders}
+                      className="mt-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Repeat section */}
           <div className="border-t border-gray-200 dark:border-gray-700">
