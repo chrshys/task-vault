@@ -48,13 +48,11 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
 
 function ProjectGroupHeader({
   name,
-  path: _projectPath,
   taskCount,
   isCollapsed,
   onToggleCollapse
 }: {
   name: string
-  path: string
   taskCount: number
   isCollapsed: boolean
   onToggleCollapse: () => void
@@ -104,7 +102,7 @@ export function TaskList() {
 
   // Get projects for the selected section with their pending tasks
   const sectionProjects = useMemo(() => {
-    if (selectedView !== 'section' || !selectedSectionName) return []
+    if (selectedView !== 'section' || selectedSectionName === null) return []
 
     const section = sections.find(s =>
       (s.isDefault && selectedSectionName === '') ||
@@ -464,7 +462,6 @@ export function TaskList() {
                   <div key={project.id}>
                     <ProjectGroupHeader
                       name={project.name}
-                      path={project.path}
                       taskCount={project.tasks.length}
                       isCollapsed={isCollapsed}
                       onToggleCollapse={() => toggleProjectGroupCollapse(project.path)}
