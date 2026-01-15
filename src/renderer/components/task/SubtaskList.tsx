@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { VaultTask, TaskMeta, RepeatConfig } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
 import { DueDatePicker } from '../ui/DueDatePicker'
@@ -13,12 +14,28 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [selectedDueDate, setSelectedDueDate] = useState<Date | null>(null)
   const [selectedRepeat, setSelectedRepeat] = useState<RepeatConfig | null>(null)
+  const [recentlyCreatedId, setRecentlyCreatedId] = useState<string | null>(null)
   const inputWrapperRef = useRef<HTMLDivElement>(null)
   const subtasks = getSubtasks(parentId)
 
+  // Clear the recently created ID after animation completes
+  const clearRecentlyCreated = useCallback(() => {
+    const timer = setTimeout(() => setRecentlyCreatedId(null), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (recentlyCreatedId) {
+      return clearRecentlyCreated()
+    }
+  }, [recentlyCreatedId, clearRecentlyCreated])
+
   const handleAdd = async () => {
     if (!newSubtask.trim()) return
-    await createSubtask(parentId, newSubtask.trim(), selectedDueDate, selectedRepeat)
+    const newItem = await createSubtask(parentId, newSubtask.trim(), selectedDueDate, selectedRepeat)
+    if (newItem) {
+      setRecentlyCreatedId(newItem.id)
+    }
     setNewSubtask('')
     setSelectedDueDate(null)
     setSelectedRepeat(null)
@@ -49,31 +66,47 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
       </h4>
 
       <div className="space-y-1">
-        {subtasks.map(subtask => {
-          const isCompleted = subtask.meta.status === 'completed'
-          return (
-            <div key={subtask.id} className="flex items-start gap-2">
-              <button
-                type="button"
-                onClick={() => handleToggle(subtask)}
-                className={`w-4 h-4 mt-0.5 flex-shrink-0 rounded border flex items-center justify-center ${
-                  isCompleted
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'border-gray-300 dark:border-gray-500 hover:border-blue-500'
-                }`}
+        <AnimatePresence mode="popLayout">
+          {subtasks.map(subtask => {
+            const isCompleted = subtask.meta.status === 'completed'
+            const isNew = subtask.id === recentlyCreatedId
+            return (
+              <motion.div
+                key={subtask.id}
+                layout
+                initial={isNew ? { opacity: 0, height: 0, backgroundColor: 'rgba(59, 130, 246, 0.15)' } : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto', backgroundColor: 'rgba(0, 0, 0, 0)' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{
+                  layout: { type: 'spring', stiffness: 400, damping: 30 },
+                  opacity: { duration: 0.15 },
+                  height: { type: 'spring', stiffness: 400, damping: 30 },
+                  backgroundColor: { duration: 0.8, delay: 0.1 }
+                }}
+                className="flex items-start gap-2 rounded px-1 -mx-1 overflow-hidden"
               >
-                {isCompleted && (
-                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-              <span className={`text-sm break-words ${isCompleted ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
-                {subtask.title}
-              </span>
-            </div>
-          )
-        })}
+                <button
+                  type="button"
+                  onClick={() => handleToggle(subtask)}
+                  className={`w-4 h-4 mt-0.5 flex-shrink-0 rounded border flex items-center justify-center ${
+                    isCompleted
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-gray-300 dark:border-gray-500 hover:border-blue-500'
+                  }`}
+                >
+                  {isCompleted && (
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+                <span className={`text-sm break-words ${isCompleted ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                  {subtask.title}
+                </span>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
       </div>
 
       <div

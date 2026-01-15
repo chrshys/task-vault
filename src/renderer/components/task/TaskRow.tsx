@@ -1,4 +1,5 @@
 import { format, isToday, isTomorrow, isPast } from 'date-fns'
+import { motion } from 'framer-motion'
 import type { VaultItem, TaskMeta } from '@shared/types'
 import { REMINDER_OFFSETS } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
@@ -13,6 +14,7 @@ interface TaskRowProps {
   onToggleComplete: (item: VaultItem) => void
   subtaskCount?: number
   completedSubtaskCount?: number
+  isNew?: boolean
 }
 
 function formatDueDate(due: string): string {
@@ -37,7 +39,7 @@ function formatRemindersTooltip(reminders: number[]): string {
     .join(', ')
 }
 
-export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
+export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0, isNew = false }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const { deleteItem, duplicateItem, convertItem } = useVault()
   const contextMenu = useContextMenu<VaultItem>()
@@ -83,7 +85,10 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
 
   return (
     <>
-    <div
+    <motion.div
+      initial={isNew ? { backgroundColor: 'rgba(59, 130, 246, 0.2)' } : false}
+      animate={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
+      transition={{ backgroundColor: { duration: 0.8, delay: 0.1 } }}
       className={`flex items-start gap-3 px-3 py-3 rounded cursor-pointer ${
         isSelected ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
       }`}
@@ -153,7 +158,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
           </span>
         </div>
       )}
-    </div>
+    </motion.div>
     {contextMenu.isOpen && (
       <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={contextMenu.close}>
         <ContextMenuItem onClick={handleDuplicate}>Duplicate</ContextMenuItem>

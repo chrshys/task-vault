@@ -1,6 +1,7 @@
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { ChevronDown, ListTodo } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -15,7 +16,7 @@ import path from 'path-browserify'
 
 const COMPLETED_COLLAPSED_KEY = 'tasklist-completed-collapsed'
 
-function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggleComplete: (item: VaultItem) => void }) {
+function SortableTaskRow({ item, onToggleComplete, isNew = false }: { item: VaultItem; onToggleComplete: (item: VaultItem) => void; isNew?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   const style = {
@@ -25,7 +26,20 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="group flex items-start">
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      layout
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{
+        layout: { type: 'spring', stiffness: 400, damping: 30 },
+        opacity: { duration: 0.15 },
+        height: { type: 'spring', stiffness: 400, damping: 30 },
+      }}
+      className="group flex items-start overflow-hidden"
+    >
       <div
         {...attributes}
         {...listeners}
@@ -41,9 +55,9 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
         </svg>
       </div>
       <div className="flex-1 min-w-0">
-        <TaskRow item={item} onToggleComplete={onToggleComplete} />
+        <TaskRow item={item} onToggleComplete={onToggleComplete} isNew={isNew} />
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -89,6 +103,7 @@ export function TaskList() {
   const [selectedDueDate, setSelectedDueDate] = useState<Date | null>(null)
   const [selectedRepeat, setSelectedRepeat] = useState<RepeatConfig | null>(null)
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
+  const [recentlyCreatedId, setRecentlyCreatedId] = useState<string | null>(null)
   const editingTitleRef = useRef<string | null>(null)
   const inputWrapperRef = useRef<HTMLDivElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -100,6 +115,18 @@ export function TaskList() {
       return false
     }
   })
+
+  // Clear the recently created ID after animation completes
+  const clearRecentlyCreated = useCallback(() => {
+    const timer = setTimeout(() => setRecentlyCreatedId(null), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (recentlyCreatedId) {
+      return clearRecentlyCreated()
+    }
+  }, [recentlyCreatedId, clearRecentlyCreated])
 
   // Get projects for the selected section with their pending tasks
   const sectionProjects = useMemo(() => {
@@ -236,7 +263,8 @@ export function TaskList() {
     const folder = selectedPath || (vaultPath ? path.join(vaultPath, 'Inbox') : null)
     if (!folder) return
 
-    await createItem(createType, folder, newTaskTitle.trim(), selectedDueDate, selectedRepeat)
+    const newItem = await createItem(createType, folder, newTaskTitle.trim(), selectedDueDate, selectedRepeat)
+    setRecentlyCreatedId(newItem.id)
     setNewTaskTitle('')
     setSelectedDueDate(null)
     setSelectedRepeat(null)
@@ -517,15 +545,18 @@ export function TaskList() {
             })}
           />
         ) : (
-          <>
+          <LayoutGroup>
             <SortableContext items={pendingItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-              {pendingItems.map((item) => (
-                <SortableTaskRow
-                  key={item.id}
-                  item={item}
-                  onToggleComplete={handleToggleComplete}
-                />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {pendingItems.map((item) => (
+                  <SortableTaskRow
+                    key={item.id}
+                    item={item}
+                    onToggleComplete={handleToggleComplete}
+                    isNew={item.id === recentlyCreatedId}
+                  />
+                ))}
+              </AnimatePresence>
             </SortableContext>
 
             {completedItems.length > 0 && (
@@ -553,19 +584,21 @@ export function TaskList() {
                 >
                   <div className="overflow-hidden">
                     <SortableContext items={completedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                      {completedItems.map((item) => (
-                        <SortableTaskRow
-                          key={item.id}
-                          item={item}
-                          onToggleComplete={handleToggleComplete}
-                        />
-                      ))}
+                      <AnimatePresence mode="popLayout">
+                        {completedItems.map((item) => (
+                          <SortableTaskRow
+                            key={item.id}
+                            item={item}
+                            onToggleComplete={handleToggleComplete}
+                          />
+                        ))}
+                      </AnimatePresence>
                     </SortableContext>
                   </div>
                 </div>
               </div>
             )}
-          </>
+          </LayoutGroup>
         )}
         </div>
       </div>
