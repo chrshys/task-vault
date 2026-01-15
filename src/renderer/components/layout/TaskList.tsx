@@ -9,6 +9,7 @@ import { TaskRow } from '../task/TaskRow'
 import { EmptyState } from '../ui/EmptyState'
 import { DueDatePicker } from '../ui/DueDatePicker'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
+import { DEFAULT_SECTION_KEY } from '@shared/types'
 import type { VaultItem, RepeatConfig, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
 
@@ -105,7 +106,7 @@ export function TaskList() {
     if (selectedView !== 'section' || selectedSectionName === null) return []
 
     const section = sections.find(s =>
-      (s.isDefault && selectedSectionName === '') ||
+      (s.isDefault && selectedSectionName === DEFAULT_SECTION_KEY) ||
       (!s.isDefault && s.name === selectedSectionName)
     )
     if (!section) return []
@@ -207,7 +208,8 @@ export function TaskList() {
         return path.basename(selectedPath)
       case 'section':
         if (selectedSectionName === null) return ''
-        return selectedSectionName === '' ? 'Projects' : selectedSectionName
+        if (selectedSectionName === DEFAULT_SECTION_KEY) return 'Projects'
+        return selectedSectionName
       default:
         return ''
     }
