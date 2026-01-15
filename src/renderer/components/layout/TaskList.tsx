@@ -206,7 +206,7 @@ export function TaskList() {
         if (!selectedPath) return ''
         return path.basename(selectedPath)
       case 'section':
-        if (!selectedSectionName) return ''
+        if (selectedSectionName === null) return ''
         return selectedSectionName === '' ? 'Projects' : selectedSectionName
       default:
         return ''
