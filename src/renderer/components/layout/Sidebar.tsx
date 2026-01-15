@@ -19,7 +19,7 @@ interface SidebarProps {
 
 export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
   const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, addSection, renameSection, deleteSection, getAllSectionNames } = useVault()
-  const { selectedView, selectedPath, setSelectedView: setSelectedViewBase, sidebarCollapsed: sidebarCollapsedFromContext, toggleSectionCollapse, isSectionCollapsed } = useUI()
+  const { selectedView, selectedPath, setSelectedView: setSelectedViewBase, sidebarCollapsed: sidebarCollapsedFromContext, toggleSectionCollapse, isSectionCollapsed, selectedSectionName, setSelectedSection } = useUI()
 
   const sidebarCollapsed = forceCollapsed ?? sidebarCollapsedFromContext
 
@@ -417,9 +417,9 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
               name={section.name}
               isDefault={section.isDefault}
               isCollapsed={isCollapsed}
-              isSelected={false}
+              isSelected={selectedSectionName === sectionKey}
               onToggleCollapse={() => toggleSectionCollapse(sectionKey)}
-              onSelectSection={() => {}}
+              onSelectSection={() => setSelectedSection(sectionKey)}
               onAddProject={() => handleOpenSectionMenu(sectionKey, section.name)}
               onContextMenu={(e) => sectionContextMenu.open(e, { name: section.name, isDefault: section.isDefault })}
               dragAttributes={attributes}
