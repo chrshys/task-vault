@@ -152,6 +152,10 @@ export function DueDatePicker({
   const handleClearTime = () => {
     if (dueDate) {
       setDateWithTime(dueDate, null)
+      // Clear reminders when time is removed (reminders require a time)
+      if (reminders.length > 0) {
+        onRemindersChange([])
+      }
     }
   }
 
@@ -188,6 +192,7 @@ export function DueDatePicker({
   const handleClear = () => {
     onDateChange(null)
     onRepeatChange(null)
+    onRemindersChange([])
     setIsOpen(false)
   }
 
