@@ -57,8 +57,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  registerIpcHandlers()
   createWindow()
+  if (mainWindow) {
+    registerIpcHandlers(mainWindow)
+  }
 })
 
 app.on('window-all-closed', () => {

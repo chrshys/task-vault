@@ -2,6 +2,14 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import type { VaultItem, VaultTask, TreeNode, SectionGroup, ItemType, ItemMeta, TaskMeta, NoteMeta, ProjectMeta, RepeatConfig, VaultConfig } from '@shared/types'
 import path from 'path-browserify'
 
+export interface ConflictDialogProps {
+  open: boolean
+  item: VaultItem
+  message: string
+  onReload: () => void
+  onOverwrite: () => void
+}
+
 interface VaultContextValue {
   items: Map<string, VaultItem>
   sections: SectionGroup[]
@@ -34,6 +42,7 @@ interface VaultContextValue {
   renameSection: (oldName: string, newName: string) => Promise<void>
   deleteSection: (sectionName: string) => Promise<void>
   getAllSectionNames: () => string[]
+  conflictDialogProps: ConflictDialogProps | null
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -114,9 +123,15 @@ function buildSections(
     }
   })
 
-  // Second pass: count tasks/notes in each project
+  // Second pass: count incomplete tasks and notes in each project
   items.forEach((item) => {
-    if (item.meta.type === 'task' || item.meta.type === 'note') {
+    if (item.meta.type === 'note') {
+      const dirPath = path.dirname(item.path)
+      const projectNode = projectMap.get(dirPath)
+      if (projectNode) {
+        projectNode.count = (projectNode.count || 0) + 1
+      }
+    } else if (item.meta.type === 'task' && item.meta.status !== 'completed') {
       const dirPath = path.dirname(item.path)
       const projectNode = projectMap.get(dirPath)
       if (projectNode) {
@@ -172,6 +187,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [sectionOrder, setSectionOrder] = useState<string[]>([])
   const [defaultSectionName, setDefaultSectionName] = useState(DEFAULT_SECTION_NAME)
   const sectionOrderRef = useRef<string[]>([])
+
+  // Conflict handling state
+  const [conflictState, setConflictState] = useState<{
+    item: VaultItem
+    previousItem: VaultItem
+    resolve: (action: 'reload' | 'overwrite') => void
+  } | null>(null)
 
   const rebuildSections = useCallback((itemsMap: Map<string, VaultItem>, sectionOrderOverride?: string[], defaultNameOverride?: string) => {
     const order = sectionOrderOverride ?? sectionOrderRef.current
@@ -251,8 +273,61 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [rebuildSections])
 
   const updateItem = useCallback(async (item: VaultItem) => {
-    await window.api.writeFile(item.path, item)
-  }, [])
+    // Store previous item for potential rollback
+    const previousItem = items.get(item.id)
+
+    // Update local state immediately for responsive UI
+    setItems(prev => {
+      const next = new Map(prev)
+      next.set(item.id, item)
+      rebuildSections(next)
+      return next
+    })
+
+    // Then persist to disk
+    const result = await window.api.writeFile(item.path, item)
+
+    if (!result.success && 'conflict' in result) {
+      // Rollback optimistic update
+      if (previousItem) {
+        setItems(prev => {
+          const next = new Map(prev)
+          next.set(previousItem.id, previousItem)
+          rebuildSections(next)
+          return next
+        })
+      }
+
+      // Show conflict dialog and wait for user action
+      const action = await new Promise<'reload' | 'overwrite'>((resolve) => {
+        setConflictState({ item, previousItem: previousItem!, resolve })
+      })
+
+      setConflictState(null)
+
+      if (action === 'reload') {
+        // Reload item from disk
+        const reloaded = await window.api.readFile(item.path) as VaultItem | null
+        if (reloaded) {
+          setItems(prev => {
+            const next = new Map(prev)
+            next.set(reloaded.id, reloaded)
+            rebuildSections(next)
+            return next
+          })
+        }
+      } else {
+        // Force overwrite
+        await window.api.forceWriteFile(item.path, item)
+        setItems(prev => {
+          const next = new Map(prev)
+          next.set(item.id, item)
+          rebuildSections(next)
+          return next
+        })
+      }
+    }
+  }, [rebuildSections, items])
 
   const moveItem = useCallback(async (item: VaultItem, newPath: string) => {
     const oldPath = item.path
@@ -777,6 +852,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [vaultPath, rebuildSections])
 
+  // Build conflict dialog props from state
+  const conflictDialogProps: ConflictDialogProps | null = conflictState
+    ? {
+        open: true,
+        item: conflictState.item,
+        message: 'This file was modified outside the app. You can discard your changes and reload, or overwrite with your version.',
+        onReload: () => conflictState.resolve('reload'),
+        onOverwrite: () => conflictState.resolve('overwrite'),
+      }
+    : null
+
   return (
     <VaultContext.Provider
       value={{
@@ -811,6 +897,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         renameSection,
         deleteSection,
         getAllSectionNames,
+        conflictDialogProps,
       }}
     >
       {children}

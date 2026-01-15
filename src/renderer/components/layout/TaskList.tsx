@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ChevronDown } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -10,6 +11,8 @@ import { DueDatePicker } from '../ui/DueDatePicker'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import type { VaultItem, RepeatConfig, TaskMeta } from '@shared/types'
 import path from 'path-browserify'
+
+const COMPLETED_COLLAPSED_KEY = 'tasklist-completed-collapsed'
 
 function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggleComplete: (item: VaultItem) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
@@ -21,11 +24,11 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="group flex items-center">
+    <div ref={setNodeRef} style={style} className="group flex items-start">
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500"
+        className="flex-shrink-0 w-4 -ml-4 flex items-start justify-center pt-3 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="9" cy="6" r="1.5" />
@@ -56,36 +59,78 @@ export function TaskList() {
   const inputWrapperRef = useRef<HTMLDivElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const contextMenu = useContextMenu()
+  const [completedCollapsed, setCompletedCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COMPLETED_COLLAPSED_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
 
   // Keep ref in sync with state
   useEffect(() => {
     editingTitleRef.current = editingTitle
   }, [editingTitle])
 
-  const displayItems = useMemo(() => {
-    const sortBySortOrder = (a: VaultItem, b: VaultItem) =>
-      (a.meta.sort_order ?? Infinity) - (b.meta.sort_order ?? Infinity)
+  // Persist collapsed state
+  useEffect(() => {
+    try {
+      localStorage.setItem(COMPLETED_COLLAPSED_KEY, String(completedCollapsed))
+    } catch {
+      // Ignore storage errors
+    }
+  }, [completedCollapsed])
 
+  const { pendingItems, completedItems } = useMemo(() => {
+    const splitAndSort = (items: VaultItem[]) => {
+      const pending = items.filter(item =>
+        item.meta.type !== 'task' || (item.meta as TaskMeta).status !== 'completed'
+      )
+      const completed = items.filter(item =>
+        item.meta.type === 'task' && (item.meta as TaskMeta).status === 'completed'
+      )
+
+      // Sort pending by sort_order
+      pending.sort((a, b) => (a.meta.sort_order ?? Infinity) - (b.meta.sort_order ?? Infinity))
+
+      // Sort completed by completed_at (most recent first)
+      completed.sort((a, b) => {
+        const aTime = (a.meta as TaskMeta).completed_at
+        const bTime = (b.meta as TaskMeta).completed_at
+        if (!aTime && !bTime) return 0
+        if (!aTime) return 1
+        if (!bTime) return -1
+        return new Date(bTime).getTime() - new Date(aTime).getTime()
+      })
+
+      return { pending, completed }
+    }
+
+    let allItems: VaultItem[] = []
     switch (selectedView) {
       case 'today':
-        return getTodayTasks().sort(sortBySortOrder)
+        allItems = getTodayTasks()
+        break
       case 'next7':
-        return getNext7DaysTasks().sort(sortBySortOrder)
+        allItems = getNext7DaysTasks()
+        break
       case 'inbox':
-        return getInboxItems().sort(sortBySortOrder)
+        allItems = getInboxItems()
+        break
       case 'project':
-        if (!selectedPath) return []
-        return Array.from(items.values())
+        if (!selectedPath) break
+        allItems = Array.from(items.values())
           .filter(item => {
             if (item.meta.type === 'project') return false
             // Filter out subtasks - only show top-level tasks
             if (item.meta.type === 'task' && (item.meta as TaskMeta).parent) return false
             return path.dirname(item.path) === selectedPath
           })
-          .sort(sortBySortOrder)
-      default:
-        return []
+        break
     }
+
+    const { pending, completed } = splitAndSort(allItems)
+    return { pendingItems: pending, completedItems: completed }
   }, [selectedView, selectedPath, items, getTodayTasks, getNext7DaysTasks, getInboxItems])
 
   const viewTitle = useMemo(() => {
@@ -214,7 +259,7 @@ export function TaskList() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
-      <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4">
+      <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4 flex items-center justify-between">
         {editingTitle !== null ? (
           <input
             ref={titleInputRef}
@@ -222,11 +267,11 @@ export function TaskList() {
             value={editingTitle}
             onChange={(e) => setEditingTitle(e.target.value)}
             onKeyDown={handleTitleKeyDown}
-            className="text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 outline-none w-full"
+            className="text-lg font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 outline-none flex-1"
           />
         ) : (
           <h2
-            className={`text-2xl font-bold text-gray-900 dark:text-white ${selectedView === 'project' ? 'cursor-context-menu' : ''}`}
+            className={`text-lg font-semibold text-gray-900 dark:text-white ${selectedView === 'project' ? 'cursor-context-menu' : ''}`}
             onContextMenu={(e) => {
               if (selectedView === 'project' && selectedPath) {
                 contextMenu.open(e, null)
@@ -254,7 +299,7 @@ export function TaskList() {
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onFocus={() => setIsInputFocused(true)}
               onBlur={handleInputBlur}
-              placeholder="What would you like to do?"
+              placeholder="Quick capture..."
               className="w-full px-3 py-3 bg-transparent rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
             />
 
@@ -332,7 +377,7 @@ export function TaskList() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl w-full mx-auto px-4 pb-4">
-        {displayItems.length === 0 ? (
+        {pendingItems.length === 0 && completedItems.length === 0 ? (
           <EmptyState
             {...(selectedView === 'today' ? {
               icon: '(tada)',
@@ -353,15 +398,55 @@ export function TaskList() {
             })}
           />
         ) : (
-          <SortableContext items={displayItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-            {displayItems.map((item) => (
-              <SortableTaskRow
-                key={item.id}
-                item={item}
-                onToggleComplete={handleToggleComplete}
-              />
-            ))}
-          </SortableContext>
+          <>
+            <SortableContext items={pendingItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              {pendingItems.map((item) => (
+                <SortableTaskRow
+                  key={item.id}
+                  item={item}
+                  onToggleComplete={handleToggleComplete}
+                />
+              ))}
+            </SortableContext>
+
+            {completedItems.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setCompletedCollapsed(prev => !prev)}
+                  className="flex items-center gap-1 px-1 py-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <ChevronDown
+                    size={12}
+                    className={`flex-shrink-0 transition-transform duration-200 ${
+                      completedCollapsed ? '-rotate-90' : ''
+                    }`}
+                  />
+                  <span>Completed</span>
+                  <span className="ml-1 text-gray-400 dark:text-gray-500 tabular-nums">
+                    {completedItems.length}
+                  </span>
+                </button>
+
+                <div
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                    completedCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <SortableContext items={completedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                      {completedItems.map((item) => (
+                        <SortableTaskRow
+                          key={item.id}
+                          item={item}
+                          onToggleComplete={handleToggleComplete}
+                        />
+                      ))}
+                    </SortableContext>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
         </div>
       </div>

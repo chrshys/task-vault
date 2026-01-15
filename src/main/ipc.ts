@@ -1,8 +1,10 @@
-import { ipcMain, dialog, app } from 'electron'
+import { ipcMain, dialog, app, BrowserWindow } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
 import type { AppSettings, VaultConfig, VaultItem, ItemType } from '../shared/types'
 import * as fileService from './services/file-service'
+
+let mainWindowRef: BrowserWindow | null = null
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json')
 
@@ -28,7 +30,8 @@ async function saveSettings(settings: AppSettings): Promise<void> {
   await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2))
 }
 
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+  mainWindowRef = mainWindow
   ipcMain.handle('settings:get', async () => {
     return loadSettings()
   })
@@ -51,11 +54,19 @@ export function registerIpcHandlers(): void {
     const settings = await loadSettings()
     settings.vaultPath = folderPath
     await saveSettings(settings)
-    return fileService.loadVault(folderPath)
+    const items = await fileService.loadVault(folderPath)
+    if (mainWindowRef) {
+      await fileService.watchVault(mainWindowRef)
+    }
+    return items
   })
 
   ipcMain.handle('vault:load', async (_event, folderPath: string) => {
-    return fileService.loadVault(folderPath)
+    const items = await fileService.loadVault(folderPath)
+    if (mainWindowRef) {
+      await fileService.watchVault(mainWindowRef)
+    }
+    return items
   })
 
   ipcMain.handle('vault:config:get', async (_event, folderPath: string) => {
@@ -72,7 +83,11 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('file:write', async (_event, { path: filePath, data }: { path: string; data: VaultItem }) => {
-    await fileService.writeFile(filePath, data)
+    return fileService.writeFile(filePath, data)
+  })
+
+  ipcMain.handle('file:forceWrite', async (_event, { path: filePath, data }: { path: string; data: VaultItem }) => {
+    await fileService.forceWriteFile(filePath, data)
   })
 
   ipcMain.handle('file:create', async (_event, { type, folder, title }: { type: string; folder: string; title: string }) => {
@@ -100,8 +115,11 @@ export function registerIpcHandlers(): void {
     if (item && item.meta.type === 'task') {
       item.meta.status = 'completed'
       item.meta.completed_at = new Date().toISOString()
-      await fileService.writeFile(filePath, item)
+      const result = await fileService.writeFile(filePath, item)
+      if (!result.success) {
+        return { item: null, conflict: true }
+      }
     }
-    return item
+    return { item, conflict: false }
   })
 }

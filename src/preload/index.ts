@@ -1,8 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+export type WriteResult = { success: true } | { success: false; conflict: true }
+
 export const api = {
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
-  writeFile: (path: string, data: unknown) => ipcRenderer.invoke('file:write', { path, data }),
+  writeFile: (path: string, data: unknown): Promise<WriteResult> => ipcRenderer.invoke('file:write', { path, data }),
+  forceWriteFile: (path: string, data: unknown) => ipcRenderer.invoke('file:forceWrite', { path, data }),
   createFile: (type: string, folder: string, title: string) =>
     ipcRenderer.invoke('file:create', { type, folder, title }),
   deleteFile: (path: string) => ipcRenderer.invoke('file:delete', path),
@@ -15,7 +18,7 @@ export const api = {
   loadVault: (path: string) => ipcRenderer.invoke('vault:load', path),
   getVaultConfig: (path: string) => ipcRenderer.invoke('vault:config:get', path),
   setVaultConfig: (path: string, config: unknown) => ipcRenderer.invoke('vault:config:set', { folderPath: path, config }),
-  completeTask: (path: string) => ipcRenderer.invoke('task:complete', path),
+  completeTask: (path: string): Promise<{ item: unknown; conflict: boolean }> => ipcRenderer.invoke('task:complete', path),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (settings: unknown) => ipcRenderer.invoke('settings:set', settings),
   onFileChanged: (callback: (data: unknown) => void) => {

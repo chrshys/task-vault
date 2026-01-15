@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { useDroppable, type DraggableAttributes, type DraggableSyntheticListeners } from '@dnd-kit/core'
 
 interface SectionHeaderProps {
@@ -39,7 +39,7 @@ export function SectionHeader({
     <div
       ref={setNodeRef}
       onContextMenu={onContextMenu}
-      className={`flex items-center justify-between px-3 mb-2 py-2 rounded-lg transition-colors ${
+      className={`flex items-center justify-between px-3 mb-1 py-1 rounded-lg transition-colors ${
         isOver
           ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500'
         : ''
@@ -53,11 +53,12 @@ export function SectionHeader({
         {...dragListeners}
         className="flex items-center gap-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
       >
-        {isCollapsed ? (
-          <ChevronRight size={12} className="flex-shrink-0" />
-        ) : (
-          <ChevronDown size={12} className="flex-shrink-0" />
-        )}
+        <ChevronDown
+          size={12}
+          className={`flex-shrink-0 transition-transform duration-200 ${
+            isCollapsed ? '-rotate-90' : ''
+          }`}
+        />
         <span>{name}</span>
       </button>
       <button

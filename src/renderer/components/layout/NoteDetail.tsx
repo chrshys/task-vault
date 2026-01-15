@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { VaultNote, NoteMeta } from '@shared/types'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2, X } from 'lucide-react'
 import { RichTextEditor } from '../ui/RichTextEditor'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -32,8 +32,10 @@ export function NoteDetail({ note }: NoteDetailProps) {
       // Use requestAnimationFrame to ensure layout is complete
       requestAnimationFrame(() => {
         if (titleRef.current) {
-          titleRef.current.style.height = 'auto'
-          titleRef.current.style.height = titleRef.current.scrollHeight + 'px'
+          titleRef.current.style.height = '24px'
+          const scrollHeight = titleRef.current.scrollHeight
+          const newHeight = Math.min(Math.max(scrollHeight, 24), 144)
+          titleRef.current.style.height = newHeight + 'px'
         }
       })
     }
@@ -98,14 +100,73 @@ export function NoteDetail({ note }: NoteDetailProps) {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex items-start gap-3 mb-3">
-          <div className="text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+      {/* Navigation row */}
+      <div className="flex-shrink-0 flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setSelectedTaskId(null)}
+          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+          title="Close panel"
+        >
+          <X size={18} />
+        </button>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1">
+          {showFocusToggle && (
+            <button
+              type="button"
+              onClick={toggleFocusMode}
+              className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+              title={focusMode ? 'Exit focus mode' : 'Enter focus mode'}
+            >
+              {focusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          )}
+          <div ref={moreMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+              title="More options"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="5" cy="12" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="12" r="2" />
+              </svg>
+            </button>
+            {showMoreMenu && (
+              <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                <button
+                  onClick={handleConvert}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                  Convert to Task
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMoreMenu(false)
+                    handleDelete()
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
-
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 pt-10 pb-4">
+        <div className="max-w-[600px] mx-auto">
+        <div className="mb-4">
           <textarea
             ref={titleRef}
             value={displayTitle}
@@ -114,74 +175,20 @@ export function NoteDetail({ note }: NoteDetailProps) {
               if (e.key === 'Enter') e.preventDefault()
             }}
             rows={1}
-            className="flex-1 text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white resize-none max-h-32 overflow-y-auto"
+            className="w-full text-lg font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white resize-none leading-6"
+            style={{ height: '24px', overflow: 'hidden' }}
             placeholder="Note title..."
           />
         </div>
 
-        <div className="flex items-center gap-2 mb-4 ml-8">
-          <div className="flex items-center gap-2 ml-auto">
-            {showFocusToggle && (
-              <button
-                type="button"
-                onClick={toggleFocusMode}
-                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                title={focusMode ? 'Exit focus mode' : 'Enter focus mode'}
-              >
-                {focusMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </button>
-            )}
-            <div ref={moreMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                title="More options"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <circle cx="5" cy="12" r="2" />
-                  <circle cx="12" cy="12" r="2" />
-                  <circle cx="19" cy="12" r="2" />
-                </svg>
-              </button>
-              {showMoreMenu && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                  <button
-                    onClick={handleConvert}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <path d="M9 12l2 2 4-4" />
-                    </svg>
-                    Convert to Task
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMoreMenu(false)
-                      handleDelete()
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="ml-8">
-          <RichTextEditor
-            key={note.id}
-            content={displayContent}
-            onChange={handleContentChange}
-            placeholder="Write your note..."
-            className="min-h-[300px]"
-          />
+        <RichTextEditor
+          key={note.id}
+          content={displayContent}
+          onChange={handleContentChange}
+          placeholder="Write your note..."
+          className="min-h-[300px]"
+          showToolbar={false}
+        />
         </div>
       </div>
       {dialogProps && <ConfirmDialog {...dialogProps} />}

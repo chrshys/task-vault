@@ -12,9 +12,21 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { SectionHeader } from './SectionHeader'
 import type { TreeNode, SectionGroup } from '@shared/types'
 
-export function Sidebar() {
+interface SidebarProps {
+  forceCollapsed?: boolean
+  onNavigate?: () => void
+}
+
+export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
   const { sections, tree, getTodayTasks, getNext7DaysTasks, getInboxItems, createProject, deleteProject, renameProject, addSection, renameSection, deleteSection, getAllSectionNames } = useVault()
-  const { selectedView, selectedPath, setSelectedView, sidebarCollapsed, toggleSectionCollapse, isSectionCollapsed } = useUI()
+  const { selectedView, selectedPath, setSelectedView: setSelectedViewBase, sidebarCollapsed: sidebarCollapsedFromContext, toggleSectionCollapse, isSectionCollapsed } = useUI()
+
+  const sidebarCollapsed = forceCollapsed ?? sidebarCollapsedFromContext
+
+  const setSelectedView = useCallback((view: Parameters<typeof setSelectedViewBase>[0], path?: string) => {
+    setSelectedViewBase(view, path)
+    onNavigate?.()
+  }, [setSelectedViewBase, onNavigate])
   const { theme, setTheme } = useTheme()
   const [newProjectName, setNewProjectName] = useState('')
   const [showListsPopover, setShowListsPopover] = useState(false)
@@ -242,7 +254,7 @@ export function Sidebar() {
       <button
         ref={setNodeRef}
         onClick={() => setSelectedView('inbox')}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+        className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
           isOver
             ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
             : selectedView === 'inbox'
@@ -250,8 +262,8 @@ export function Sidebar() {
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
         }`}
       >
-        <span className="flex items-center gap-2.5">
-          <Inbox size={16} className={isOver ? 'text-blue-500 dark:text-blue-400' : selectedView === 'inbox' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+        <span className="flex items-center gap-2">
+          <Inbox size={15} className={isOver ? 'text-blue-500 dark:text-blue-400' : selectedView === 'inbox' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
           <span>Inbox</span>
         </span>
         {inboxCount > 0 && (
@@ -278,7 +290,7 @@ export function Sidebar() {
         }`}
         title={`Inbox${inboxCount > 0 ? ` (${inboxCount})` : ''}`}
       >
-        <Inbox size={18} className={isOver ? 'text-blue-500 dark:text-blue-400' : ''} />
+        <Inbox size={20} className={isOver ? 'text-blue-500 dark:text-blue-400' : ''} />
       </button>
     )
   }
@@ -288,14 +300,14 @@ export function Sidebar() {
     const isSelected = selectedView === 'project' && selectedPath === node.path
     return (
       <div
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
+        className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
           isSelected
             ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
             : 'text-gray-600 dark:text-gray-400'
         }`}
       >
-        <span className="flex items-center gap-2.5 flex-1 min-w-0">
-          <ListTodo size={16} className={`flex-shrink-0 ${isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
+        <span className="flex items-center gap-2 flex-1 min-w-0">
+          <ListTodo size={15} className={`flex-shrink-0 ${isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
           <input
             ref={editInputRef}
             type="text"
@@ -329,7 +341,7 @@ export function Sidebar() {
         onContextMenu={(e) => contextMenu.open(e, node)}
         {...attributes}
         {...listeners}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
+        className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
           isOver
             ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 dark:ring-blue-500'
             : isSelected
@@ -342,8 +354,8 @@ export function Sidebar() {
           transition,
         }}
       >
-        <span className="flex items-center gap-2.5 flex-1 min-w-0">
-          <ListTodo size={16} className={`flex-shrink-0 ${isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
+        <span className="flex items-center gap-2 flex-1 min-w-0">
+          <ListTodo size={15} className={`flex-shrink-0 ${isOver ? 'text-blue-500 dark:text-blue-400' : isSelected ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} />
           <span className="truncate">{node.name}</span>
         </span>
         {node.count !== undefined && node.count > 0 && (
@@ -373,7 +385,7 @@ export function Sidebar() {
           transition,
           opacity: isDragging ? 0.6 : 1,
         }}
-        className={isCollapsed ? 'mb-0' : 'mb-4'}
+        className={`transition-[margin] duration-200 ease-out ${isCollapsed ? 'mb-0' : 'mb-2'}`}
       >
         {isEditing ? (
           <div className="flex items-center px-3 mb-2">
@@ -519,20 +531,26 @@ export function Sidebar() {
           </div>
         )}
 
-        {!isCollapsed && (
-          <SortableContext
-            items={section.projects.map((node) => node.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-0.5">
-              {section.projects.map((node) => (
-                editingProject?.node.id === node.id
-                  ? <div key={node.id}>{renderProjectEditInput(node)}</div>
-                  : <ProjectItem key={node.id} node={node} sectionKey={sectionKey} />
-              ))}
-            </div>
-          </SortableContext>
-        )}
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+            isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <SortableContext
+              items={section.projects.map((node) => node.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-0.5">
+                {section.projects.map((node) => (
+                  editingProject?.node.id === node.id
+                    ? <div key={node.id}>{renderProjectEditInput(node)}</div>
+                    : <ProjectItem key={node.id} node={node} sectionKey={sectionKey} />
+                ))}
+              </div>
+            </SortableContext>
+          </div>
+        </div>
       </div>
     )
   }
@@ -540,7 +558,7 @@ export function Sidebar() {
   // Collapsed sidebar view - icon only
   if (sidebarCollapsed) {
     return (
-      <div className="h-full flex flex-col bg-white dark:bg-gray-900 py-4">
+      <div className="h-full flex flex-col bg-gray-100 dark:bg-gray-900 py-4">
         <div className="flex flex-col items-center gap-1 px-2">
           <button
             onClick={() => setSelectedView('today')}
@@ -551,7 +569,7 @@ export function Sidebar() {
             }`}
             title={`Today${todayCount > 0 ? ` (${todayCount})` : ''}`}
           >
-            <CalendarDays size={18} />
+            <CalendarDays size={20} />
           </button>
           <button
             onClick={() => setSelectedView('next7')}
@@ -562,7 +580,7 @@ export function Sidebar() {
             }`}
             title={`Next 7 Days${next7Count > 0 ? ` (${next7Count})` : ''}`}
           >
-            <CalendarRange size={18} />
+            <CalendarRange size={20} />
           </button>
           <CollapsedInboxDropZone />
 
@@ -578,10 +596,10 @@ export function Sidebar() {
                 }`}
                 title="Projects"
               >
-                <List size={18} />
+                <List size={20} />
               </button>
               {showListsPopover && (
-                  <div className="absolute left-full top-0 ml-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 max-h-80 overflow-y-auto">
+                  <div className="absolute left-full top-0 ml-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-2 z-50 max-h-80 overflow-y-auto">
                     <p className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                       Projects
                     </p>
@@ -614,7 +632,7 @@ export function Sidebar() {
               }`}
               title="Settings"
             >
-              <Settings size={18} />
+              <Settings size={20} />
             </button>
             {showSettingsMenu && (
               <div className="absolute left-full bottom-0 ml-2 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
@@ -664,19 +682,19 @@ export function Sidebar() {
 
   // Expanded sidebar view
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+    <div className="h-full flex flex-col bg-gray-100 dark:bg-gray-900">
       <div className="flex-1 overflow-y-auto px-3 pt-4">
         <div className="space-y-0.5 mb-6">
           <button
             onClick={() => setSelectedView('today')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
               selectedView === 'today'
                 ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
-            <span className="flex items-center gap-2.5">
-              <CalendarDays size={16} className={selectedView === 'today' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+            <span className="flex items-center gap-2">
+              <CalendarDays size={15} className={selectedView === 'today' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
               <span>Today</span>
             </span>
             {todayCount > 0 && (
@@ -686,14 +704,14 @@ export function Sidebar() {
 
           <button
             onClick={() => setSelectedView('next7')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
               selectedView === 'next7'
                 ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
-            <span className="flex items-center gap-2.5">
-              <CalendarRange size={16} className={selectedView === 'next7' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
+            <span className="flex items-center gap-2">
+              <CalendarRange size={15} className={selectedView === 'next7' ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'} />
               <span>Next 7 Days</span>
             </span>
             {next7Count > 0 && (

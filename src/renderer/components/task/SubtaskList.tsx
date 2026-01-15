@@ -49,19 +49,31 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
       </h4>
 
       <div className="space-y-1">
-        {subtasks.map(subtask => (
-          <div key={subtask.id} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={subtask.meta.status === 'completed'}
-              onChange={() => handleToggle(subtask)}
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className={`text-sm ${subtask.meta.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
-              {subtask.title}
-            </span>
-          </div>
-        ))}
+        {subtasks.map(subtask => {
+          const isCompleted = subtask.meta.status === 'completed'
+          return (
+            <div key={subtask.id} className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => handleToggle(subtask)}
+                className={`w-4 h-4 mt-0.5 flex-shrink-0 rounded border flex items-center justify-center ${
+                  isCompleted
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-300 dark:border-gray-500 hover:border-blue-500'
+                }`}
+              >
+                {isCompleted && (
+                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <span className={`text-sm break-words ${isCompleted ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                {subtask.title}
+              </span>
+            </div>
+          )
+        })}
       </div>
 
       <div

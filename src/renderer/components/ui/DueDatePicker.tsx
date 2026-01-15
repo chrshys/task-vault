@@ -26,6 +26,7 @@ export function DueDatePicker({
   const [timeExpanded, setTimeExpanded] = useState(false)
   const [repeatExpanded, setRepeatExpanded] = useState(false)
   const [prevDueDate, setPrevDueDate] = useState(dueDate)
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Extract time from dueDate
@@ -40,6 +41,29 @@ export function DueDatePicker({
       setViewDate(dueDate)
     }
   }
+
+  // Update dropdown position when open
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const dropdownWidth = 320 // w-80 = 20rem = 320px
+      const padding = 8
+
+      // Check if right-aligned dropdown would overflow left edge
+      if (rect.right < dropdownWidth + padding) {
+        // Position from left instead
+        setDropdownPosition({
+          top: rect.bottom + 4,
+          left: Math.max(padding, rect.left),
+        })
+      } else {
+        setDropdownPosition({
+          top: rect.bottom + 4,
+          right: window.innerWidth - rect.right,
+        })
+      }
+    }
+  }, [isOpen])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -240,8 +264,12 @@ export function DueDatePicker({
         <span>{dueDate ? getDisplayText() : 'Due date'}</span>
       </button>
 
-      {isOpen && (
-        <div className="absolute top-full mt-1 left-0 z-50 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {isOpen && dropdownPosition && (
+        <div className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden" style={{
+          top: dropdownPosition.top,
+          left: dropdownPosition.left,
+          right: dropdownPosition.right,
+        }}>
           {/* Quick shortcuts */}
           <div className="flex justify-around p-3 border-b border-gray-200 dark:border-gray-700">
             <button

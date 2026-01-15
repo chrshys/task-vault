@@ -4,53 +4,55 @@
 
 /* Light mode base - when no .dark class */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  /* One Dark Pro Light */
+  --background: 220 13% 98%;
+  --foreground: 220 13% 18%;
+  --muted: 220 13% 94%;
+  --muted-foreground: 220 9% 46%;
+  --border: 220 13% 88%;
+  --input: 220 13% 92%;
+  --ring: 207 82% 50%;
+  --primary: 207 82% 50%;
+  --primary-foreground: 220 13% 98%;
+  --secondary: 220 13% 94%;
+  --secondary-foreground: 220 13% 18%;
+  --accent: 220 13% 90%;
+  --accent-foreground: 220 13% 18%;
+  --destructive: 355 65% 50%;
+  --destructive-foreground: 0 0% 98%;
 
   /* Theme-specific variables for component styling */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
+  --bg-primary: #f8f9fb;
+  --bg-secondary: #e5e9f0;
+  --text-primary: #282c34;
+  --text-secondary: #5c6370;
+  --border-color: #c8ccd4;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  /* One Dark Pro Flat */
+  --background: 220 13% 18%;
+  --foreground: 219 14% 71%;
+  --muted: 220 17% 20%;
+  --muted-foreground: 220 9% 40%;
+  --border: 220 13% 28%;
+  --input: 220 13% 15%;
+  --ring: 207 82% 66%;
+  --primary: 207 82% 66%;
+  --primary-foreground: 220 13% 18%;
+  --secondary: 220 17% 20%;
+  --secondary-foreground: 219 14% 71%;
+  --accent: 220 17% 24%;
+  --accent-foreground: 219 14% 71%;
+  --destructive: 355 65% 65%;
+  --destructive-foreground: 220 13% 18%;
 
   /* Theme-specific variables for component styling */
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-color: #374151;
+  --bg-primary: #282c34;
+  --bg-secondary: #21252b;
+  --text-primary: #abb2bf;
+  --text-secondary: #5c6370;
+  --border-color: #3e4452;
 }
 
 * {
@@ -69,7 +71,7 @@ body {
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -94,7 +96,7 @@ body {
 }
 
 .ProseMirror a {
-  color: #3b82f6;
+  color: #4078f2;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -104,11 +106,11 @@ body {
 }
 
 .dark .ProseMirror a {
-  color: #60a5fa;
+  color: #61afef;
 }
 
 .dark .ProseMirror a:hover {
-  color: #93c5fd;
+  color: #4dc4ff;
 }
 
 /* Custom scrollbar styling */
@@ -122,30 +124,30 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #c8ccd4;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #abb2bf;
 }
 
 /* Dark mode scrollbar */
 .dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: #4e566660;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: #5a637580;
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-color: #c8ccd4 transparent;
 }
 
 .dark * {
-  scrollbar-color: #4b5563 transparent;
+  scrollbar-color: #4e5666 transparent;
 }
 

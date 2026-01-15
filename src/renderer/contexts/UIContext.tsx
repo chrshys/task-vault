@@ -41,10 +41,13 @@ interface UIContextValue {
   showQuickAdd: boolean
   quickAddType: 'task' | 'note'
   collapsedSections: Set<string>
+  mobileMenuOpen: boolean
   setSelectedView: (view: ViewType, path?: string) => void
   setSelectedTaskId: (id: string | null) => void
   toggleSidebar: () => void
   toggleFocusMode: () => void
+  toggleMobileMenu: () => void
+  closeMobileMenu: () => void
   canGoBack: boolean
   canGoForward: boolean
   goBack: () => void
@@ -71,6 +74,7 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   const [navIndex, setNavIndex] = useState(-1)
   const suppressNavRef = useRef(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const { width: windowWidth } = useWindowSize()
   const sidebarCollapsed = sidebarManuallyCollapsed
@@ -136,11 +140,21 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   useEffect(() => {
     if (layoutMode === 'mobile') {
       setFocusMode(false)
+    } else {
+      setMobileMenuOpen(false)
     }
   }, [layoutMode])
 
   const toggleFocusMode = useCallback(() => {
     setFocusMode(prev => !prev)
+  }, [])
+
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen(prev => !prev)
+  }, [])
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false)
   }, [])
 
   const toggleSectionCollapse = useCallback((sectionName: string) => {
@@ -182,10 +196,13 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
         showQuickAdd,
         quickAddType,
         collapsedSections,
+        mobileMenuOpen,
         setSelectedView,
         setSelectedTaskId: setSelectedTaskIdWithNav,
         toggleSidebar,
         toggleFocusMode,
+        toggleMobileMenu,
+        closeMobileMenu,
         canGoBack,
         canGoForward,
         goBack,

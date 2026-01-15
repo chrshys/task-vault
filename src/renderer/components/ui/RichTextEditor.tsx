@@ -2,9 +2,24 @@ import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
-import { useEffect, useState } from 'react'
-import { Bold, Italic, List, ListOrdered, Link as LinkIcon, X } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import {
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Link as LinkIcon,
+  X,
+  Strikethrough,
+  Code,
+  Quote,
+  FileCode,
+  Heading1,
+  Heading2,
+  Heading3,
+} from 'lucide-react'
 import { marked } from 'marked'
+import { ContextMenu, ContextMenuItem } from './ContextMenu'
 
 // Check if text looks like markdown
 function looksLikeMarkdown(text: string): boolean {
@@ -32,6 +47,8 @@ interface RichTextEditorProps {
   onChange: (content: string) => void
   placeholder?: string
   className?: string
+  showToolbar?: boolean
+  onEditorReady?: (editor: Editor) => void
 }
 
 interface ToolbarButtonProps {
@@ -58,7 +75,7 @@ function ToolbarButton({ onClick, isActive, title, children }: ToolbarButtonProp
   )
 }
 
-function EditorToolbar({ editor }: { editor: Editor | null }) {
+export function EditorToolbar({ editor }: { editor: Editor | null }) {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
 
@@ -77,7 +94,7 @@ function EditorToolbar({ editor }: { editor: Editor | null }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 px-2 py-1.5 border-b border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-0.5">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -171,12 +188,55 @@ function EditorToolbar({ editor }: { editor: Editor | null }) {
   )
 }
 
+interface ContextMenuState {
+  isOpen: boolean
+  x: number
+  y: number
+  hasSelection: boolean
+  isOnLink: boolean
+}
+
+interface LinkInputState {
+  isOpen: boolean
+  x: number
+  y: number
+  selectionFrom: number
+  selectionTo: number
+}
+
 export function RichTextEditor({
   content,
   onChange,
   placeholder = 'Write something...',
   className = '',
+  showToolbar = true,
+  onEditorReady,
 }: RichTextEditorProps) {
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    hasSelection: false,
+    isOnLink: false,
+  })
+  const [linkInput, setLinkInput] = useState<LinkInputState>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    selectionFrom: 0,
+    selectionTo: 0,
+  })
+  const [linkUrl, setLinkUrl] = useState('')
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, isOpen: false }))
+  }, [])
+
+  const closeLinkInput = useCallback(() => {
+    setLinkInput((prev) => ({ ...prev, isOpen: false }))
+    setLinkUrl('')
+  }, [])
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -186,6 +246,9 @@ export function RichTextEditor({
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML())
+    },
+    onCreate: ({ editor }) => {
+      onEditorReady?.(editor)
     },
     editorProps: {
       handlePaste: (_view, event) => {
@@ -240,12 +303,211 @@ export function RichTextEditor({
     }
   }, [content, editor])
 
+  useEffect(() => {
+    if (editor) {
+      onEditorReady?.(editor)
+    }
+  }, [editor, onEditorReady])
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!editor) return
+
+      // Check if there's selected text
+      const { from, to } = editor.state.selection
+      const hasSelection = from !== to
+      const isOnLink = editor.isActive('link')
+
+      // Show context menu if there's a selection OR cursor is on a link
+      if (hasSelection || isOnLink) {
+        e.preventDefault()
+        setContextMenu({
+          isOpen: true,
+          x: e.clientX,
+          y: e.clientY,
+          hasSelection,
+          isOnLink,
+        })
+      }
+    },
+    [editor]
+  )
+
+  const applyFormatting = useCallback(
+    (action: () => void) => {
+      action()
+      closeContextMenu()
+    },
+    [closeContextMenu]
+  )
+
   return (
-    <div className={`border border-gray-300 dark:border-gray-700 rounded-md ${className}`}>
-      <EditorToolbar editor={editor} />
-      <div className="p-2">
+    <div className={className}>
+      {showToolbar && <EditorToolbar editor={editor} />}
+      <div onContextMenu={handleContextMenu}>
         <EditorContent editor={editor} className="prose prose-sm dark:prose-invert max-w-none min-h-[100px] outline-none text-gray-900 dark:text-gray-100" />
       </div>
+
+      {contextMenu.isOpen && editor && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
+          {contextMenu.hasSelection && (
+            <>
+              {/* Text formatting */}
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleBold().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Bold size={14} /> Bold
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleItalic().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Italic size={14} /> Italic
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleStrike().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Strikethrough size={14} /> Strikethrough
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleCode().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Code size={14} /> Inline Code
+                </span>
+              </ContextMenuItem>
+              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+              {/* Headings */}
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Heading1 size={14} /> Heading 1
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Heading2 size={14} /> Heading 2
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Heading3 size={14} /> Heading 3
+                </span>
+              </ContextMenuItem>
+              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+              {/* Lists */}
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleBulletList().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <List size={14} /> Bullet List
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleOrderedList().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <ListOrdered size={14} /> Numbered List
+                </span>
+              </ContextMenuItem>
+              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+              {/* Blocks */}
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleBlockquote().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <Quote size={14} /> Blockquote
+                </span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => applyFormatting(() => editor.chain().focus().toggleCodeBlock().run())}
+              >
+                <span className="flex items-center gap-2">
+                  <FileCode size={14} /> Code Block
+                </span>
+              </ContextMenuItem>
+              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+              {/* Links */}
+              <ContextMenuItem
+                onClick={() => {
+                  if (editor.isActive('link')) {
+                    applyFormatting(() => editor.chain().focus().unsetLink().run())
+                  } else {
+                    // Save selection and position, then show link input
+                    const { from, to } = editor.state.selection
+                    setLinkInput({
+                      isOpen: true,
+                      x: contextMenu.x,
+                      y: contextMenu.y,
+                      selectionFrom: from,
+                      selectionTo: to,
+                    })
+                    closeContextMenu()
+                  }
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <LinkIcon size={14} /> {editor.isActive('link') ? 'Remove Link' : 'Add Link'}
+                </span>
+              </ContextMenuItem>
+            </>
+          )}
+          {!contextMenu.hasSelection && contextMenu.isOnLink && (
+            <ContextMenuItem
+              onClick={() => applyFormatting(() => editor.chain().focus().unsetLink().run())}
+            >
+              <span className="flex items-center gap-2">
+                <LinkIcon size={14} /> Remove Link
+              </span>
+            </ContextMenuItem>
+          )}
+        </ContextMenu>
+      )}
+
+      {linkInput.isOpen && editor && (
+        <ContextMenu x={linkInput.x} y={linkInput.y} onClose={closeLinkInput}>
+          <div className="px-2 py-1.5">
+            <input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  if (linkUrl) {
+                    let finalUrl = linkUrl.trim()
+                    if (finalUrl && !/^https?:\/\//i.test(finalUrl)) {
+                      finalUrl = `https://${finalUrl}`
+                    }
+                    editor
+                      .chain()
+                      .focus()
+                      .setTextSelection({ from: linkInput.selectionFrom, to: linkInput.selectionTo })
+                      .setLink({ href: finalUrl })
+                      .run()
+                  }
+                  closeLinkInput()
+                } else if (e.key === 'Escape') {
+                  closeLinkInput()
+                }
+              }}
+              placeholder="https://..."
+              className="w-48 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+          </div>
+        </ContextMenu>
+      )}
     </div>
   )
 }

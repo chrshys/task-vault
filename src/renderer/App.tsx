@@ -8,16 +8,17 @@ import { Welcome } from './components/Welcome'
 import { TitleBar } from './components/layout/TitleBar'
 import { ResizablePanelLayout } from './components/layout/ResizablePanelLayout'
 import { QuickAddModal } from './components/ui/QuickAddModal'
+import { ConflictDialog } from './components/ui/ConflictDialog'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { AppSettings } from '@shared/types'
 
 function MainLayout() {
-  const { showQuickAdd, quickAddType, closeQuickAdd } = useUI()
+  const { showQuickAdd, quickAddType, closeQuickAdd, layoutMode } = useUI()
   useKeyboardShortcuts()
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <TitleBar />
+      {layoutMode !== 'mobile' && <TitleBar />}
       <TreeDndProvider>
         <div className="flex-1 flex min-h-0">
           <ResizablePanelLayout />
@@ -31,7 +32,7 @@ function MainLayout() {
 }
 
 function AppContent() {
-  const { vaultPath, loadVault, loading } = useVault()
+  const { vaultPath, loadVault, loading, conflictDialogProps } = useVault()
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -60,6 +61,7 @@ function AppContent() {
   return (
     <HistoryProvider>
       <MainLayout />
+      {conflictDialogProps && <ConflictDialog {...conflictDialogProps} />}
     </HistoryProvider>
   )
 }

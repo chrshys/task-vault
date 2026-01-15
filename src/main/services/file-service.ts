@@ -9,9 +9,44 @@ import { createFilename } from '../utils/slug'
 
 const VAULT_CONFIG_FILENAME = '.vault.json'
 const DEFAULT_SECTION_NAME = 'Projects'
+const WRITE_IGNORE_MS = 100
 
 let watcher: FSWatcher | null = null
 let vaultPath: string | null = null
+
+// Track paths we've recently written to, so chokidar ignores our own changes
+const recentWrites = new Set<string>()
+
+// Track file mtimes for conflict detection
+const fileMtimes = new Map<string, number>()
+
+export type WriteResult = { success: true } | { success: false; conflict: true }
+
+async function getFileMtime(filePath: string): Promise<number | null> {
+  try {
+    const stat = await fs.stat(filePath)
+    return stat.mtimeMs
+  } catch {
+    return null
+  }
+}
+
+function updateTrackedMtime(filePath: string, mtime: number): void {
+  fileMtimes.set(filePath, mtime)
+}
+
+function clearTrackedMtime(filePath: string): void {
+  fileMtimes.delete(filePath)
+}
+
+function markAsOwnWrite(filePath: string): void {
+  recentWrites.add(filePath)
+  setTimeout(() => recentWrites.delete(filePath), WRITE_IGNORE_MS)
+}
+
+function isOwnWrite(filePath: string): boolean {
+  return recentWrites.has(filePath)
+}
 
 export function getVaultPath(): string | null {
   return vaultPath
@@ -60,6 +95,7 @@ export async function writeVaultConfig(folderPath: string, config: VaultConfig):
 
 export async function loadVault(folderPath: string): Promise<VaultItem[]> {
   vaultPath = folderPath
+  fileMtimes.clear()
   const items: VaultItem[] = []
 
   async function scanDirectory(dirPath: string) {
@@ -71,10 +107,14 @@ export async function loadVault(folderPath: string): Promise<VaultItem[]> {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         await scanDirectory(fullPath)
       } else if (entry.name.endsWith('.md')) {
-        const content = await fs.readFile(fullPath, 'utf-8')
+        const [content, stat] = await Promise.all([
+          fs.readFile(fullPath, 'utf-8'),
+          fs.stat(fullPath),
+        ])
         const item = parseFile(fullPath, content)
         if (item) {
           items.push(item)
+          updateTrackedMtime(fullPath, stat.mtimeMs)
         }
       }
     }
@@ -98,36 +138,86 @@ export async function watchVault(mainWindow: BrowserWindow): Promise<void> {
   })
 
   watcher.on('change', async (filePath) => {
-    const content = await fs.readFile(filePath, 'utf-8')
+    if (isOwnWrite(filePath)) return
+    const [content, stat] = await Promise.all([
+      fs.readFile(filePath, 'utf-8'),
+      fs.stat(filePath),
+    ])
     const item = parseFile(filePath, content)
     if (item) {
+      updateTrackedMtime(filePath, stat.mtimeMs)
       mainWindow.webContents.send('file:changed', item)
     }
   })
 
   watcher.on('add', async (filePath) => {
-    const content = await fs.readFile(filePath, 'utf-8')
+    if (isOwnWrite(filePath)) return
+    const [content, stat] = await Promise.all([
+      fs.readFile(filePath, 'utf-8'),
+      fs.stat(filePath),
+    ])
     const item = parseFile(filePath, content)
     if (item) {
+      updateTrackedMtime(filePath, stat.mtimeMs)
       mainWindow.webContents.send('file:added', item)
     }
   })
 
   watcher.on('unlink', (filePath) => {
+    if (isOwnWrite(filePath)) return
+    clearTrackedMtime(filePath)
     mainWindow.webContents.send('file:deleted', filePath)
   })
 }
 
 export async function readFile(filePath: string): Promise<VaultItem | null> {
-  const content = await fs.readFile(filePath, 'utf-8')
-  return parseFile(filePath, content)
+  const [content, stat] = await Promise.all([
+    fs.readFile(filePath, 'utf-8'),
+    fs.stat(filePath),
+  ])
+  const item = parseFile(filePath, content)
+  if (item) {
+    updateTrackedMtime(filePath, stat.mtimeMs)
+  }
+  return item
 }
 
-export async function writeFile(filePath: string, item: VaultItem): Promise<void> {
+export async function writeFile(filePath: string, item: VaultItem): Promise<WriteResult> {
+  // Check for conflict: if we have a tracked mtime, verify file hasn't changed
+  const trackedMtime = fileMtimes.get(filePath)
+  if (trackedMtime !== undefined) {
+    const currentMtime = await getFileMtime(filePath)
+    if (currentMtime !== null && currentMtime !== trackedMtime) {
+      return { success: false, conflict: true }
+    }
+  }
+
   const content = serializeFile(item)
   // Ensure parent directory exists (for move operations)
   await fs.mkdir(path.dirname(filePath), { recursive: true })
+  markAsOwnWrite(filePath)
   await fs.writeFile(filePath, content)
+
+  // Update tracked mtime after successful write
+  const newMtime = await getFileMtime(filePath)
+  if (newMtime !== null) {
+    updateTrackedMtime(filePath, newMtime)
+  }
+
+  return { success: true }
+}
+
+export async function forceWriteFile(filePath: string, item: VaultItem): Promise<void> {
+  const content = serializeFile(item)
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
+  markAsOwnWrite(filePath)
+  await fs.writeFile(filePath, content)
+
+  // Update tracked mtime after write
+  const newMtime = await getFileMtime(filePath)
+  if (newMtime !== null) {
+    updateTrackedMtime(filePath, newMtime)
+  }
 }
 
 export async function createFile(
@@ -165,11 +255,14 @@ export async function createFile(
   const filePath = path.join(folder, filename)
   const item: VaultItem = { id, path: filePath, meta, content: '', title }
 
-  await writeFile(filePath, item)
+  // New files can't have conflicts, use force write
+  await forceWriteFile(filePath, item)
   return item
 }
 
 export async function deleteFile(filePath: string): Promise<void> {
+  markAsOwnWrite(filePath)
+  clearTrackedMtime(filePath)
   await fs.unlink(filePath)
 }
 
@@ -186,6 +279,8 @@ export async function renameDirectory(oldPath: string, newName: string): Promise
 }
 
 export async function moveFile(from: string, to: string): Promise<void> {
+  markAsOwnWrite(from)
+  markAsOwnWrite(to)
   await fs.rename(from, to)
 }
 

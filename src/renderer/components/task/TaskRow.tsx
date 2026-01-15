@@ -75,7 +75,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   return (
     <>
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer ${
+      className={`flex items-start gap-3 px-3 py-3 rounded cursor-pointer ${
         isSelected ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
       }`}
       onClick={() => setSelectedTaskId(item.id)}
@@ -87,44 +87,48 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
             e.stopPropagation()
             onToggleComplete(item)
           }}
-          className={`w-5 h-5 rounded border flex items-center justify-center ${
+          className={`w-4 h-4 mt-0.5 flex-shrink-0 rounded border flex items-center justify-center ${
             isCompleted
               ? 'bg-blue-600 border-blue-600 text-white'
-              : 'border-gray-400 dark:border-gray-500 hover:border-blue-500'
+              : 'border-gray-300 dark:border-gray-500 hover:border-blue-500'
           }`}
         >
-          {isCompleted && <span className="text-xs">✓</span>}
+          {isCompleted && (
+            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
         </button>
       )}
 
       {!isTask && (
-        <span className="w-5 h-5 flex items-center justify-center text-gray-400 dark:text-gray-500">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <span className="w-4 h-4 mt-0.5 flex-shrink-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
           </svg>
         </span>
       )}
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={`text-sm truncate ${isCompleted ? 'line-through text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
+        <div className="flex items-start gap-2">
+          <p className={`text-sm break-words ${isCompleted ? 'line-through text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
             {item.title}
           </p>
           {subtaskCount > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
               {completedSubtaskCount}/{subtaskCount}
             </span>
           )}
         </div>
         {item.content && (
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-gray-500 break-words">
             {getFirstLine(item.content)}
           </p>
         )}
       </div>
 
       {due && !isCompleted && (
-        <span className={`text-xs ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
+        <span className={`text-xs flex-shrink-0 mt-0.5 ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
           {formatDueDate(due)}
         </span>
       )}
