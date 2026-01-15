@@ -34,6 +34,7 @@ export function DueDatePicker({
   const [prevDueDate, setPrevDueDate] = useState(dueDate)
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const prevHasTime = useRef(false)
 
   // Extract time from dueDate
   const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false
@@ -51,6 +52,14 @@ export function DueDatePicker({
       setViewDate(dueDate)
     }
   }
+
+  // Auto-select "At time" reminder when time is first set
+  useEffect(() => {
+    if (hasTime && !prevHasTime.current && reminders.length === 0) {
+      onRemindersChange([0]) // Default to "At time"
+    }
+    prevHasTime.current = hasTime
+  }, [hasTime, reminders.length, onRemindersChange])
 
   // Update dropdown position when open
   useEffect(() => {
