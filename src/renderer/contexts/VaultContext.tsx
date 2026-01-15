@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
-import type { VaultItem, VaultTask, TreeNode, SectionGroup, ItemType, ItemMeta, TaskMeta, NoteMeta, ProjectMeta, RepeatConfig, VaultConfig } from '@shared/types'
+import { DEFAULT_SECTION_KEY, type VaultItem, type VaultTask, type TreeNode, type SectionGroup, type ItemType, type ItemMeta, type TaskMeta, type NoteMeta, type ProjectMeta, type RepeatConfig, type VaultConfig } from '@shared/types'
 import path from 'path-browserify'
 
 export interface ConflictDialogProps {
@@ -54,11 +54,11 @@ function normalizeSectionOrder(sectionOrder: string[]): string[] {
   let hasDefault = false
 
   for (const name of sectionOrder) {
-    if (name === '') {
+    if (name === '' || name === DEFAULT_SECTION_KEY) {
       if (!hasDefault) {
-        normalized.push('')
+        normalized.push(DEFAULT_SECTION_KEY)
         hasDefault = true
-        seen.add('')
+        seen.add(DEFAULT_SECTION_KEY)
       }
       continue
     }
@@ -71,7 +71,7 @@ function normalizeSectionOrder(sectionOrder: string[]): string[] {
   }
 
   if (!hasDefault) {
-    normalized.unshift('')
+    normalized.unshift(DEFAULT_SECTION_KEY)
   }
 
   return normalized
@@ -103,7 +103,7 @@ function buildSections(
   items.forEach((item) => {
     if (item.meta.type === 'project') {
       const dirPath = path.dirname(item.path)
-      const sectionName = (item.meta as ProjectMeta).section || ''
+      const sectionName = (item.meta as ProjectMeta).section || DEFAULT_SECTION_KEY
 
       const node: TreeNode = {
         id: item.id,
@@ -113,7 +113,7 @@ function buildSections(
         children: [],
         count: 0,
         sortOrder: (item.meta as ProjectMeta).sort_order,
-        sectionName: sectionName || '',
+        sectionName: sectionName || DEFAULT_SECTION_KEY,
       }
       projectMap.set(dirPath, node)
 
@@ -160,7 +160,7 @@ function buildSections(
 
   for (const key of orderedKeys) {
     const projects = sectionMap.get(key) || []
-    if (key === '') {
+    if (key === DEFAULT_SECTION_KEY) {
       sections.push({
         name: defaultSectionName,
         isDefault: true,
