@@ -1,5 +1,6 @@
 import { format, isToday, isTomorrow, isPast } from 'date-fns'
 import type { VaultItem, TaskMeta } from '@shared/types'
+import { REMINDER_OFFSETS } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
 import { useVault } from '../../contexts/VaultContext'
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
@@ -30,6 +31,12 @@ function getFirstLine(html: string): string {
   return doc.body.textContent?.trim() || ''
 }
 
+function formatRemindersTooltip(reminders: number[]): string {
+  return reminders
+    .map(offset => REMINDER_OFFSETS.find(r => r.value === offset)?.label ?? `${offset}min`)
+    .join(', ')
+}
+
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0 }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
   const { deleteItem, duplicateItem, convertItem } = useVault()
@@ -40,6 +47,8 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
   const taskMeta = isTask ? (item.meta as TaskMeta) : null
   const isCompleted = taskMeta?.status === 'completed'
   const due = taskMeta?.due
+  const reminders = taskMeta?.reminders
+  const hasReminders = reminders && reminders.length > 0
   const isOverdue = due && isPast(new Date(due)) && !isCompleted
 
   const handleDelete = async () => {
@@ -128,9 +137,21 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
       </div>
 
       {due && !isCompleted && (
-        <span className={`text-xs flex-shrink-0 mt-0.5 ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
-          {formatDueDate(due)}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+          {hasReminders && (
+            <span
+              className="text-gray-400 dark:text-gray-500"
+              title={`Reminders: ${formatRemindersTooltip(reminders)}`}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </span>
+          )}
+          <span className={`text-xs ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
+            {formatDueDate(due)}
+          </span>
+        </div>
       )}
     </div>
     {contextMenu.isOpen && (
