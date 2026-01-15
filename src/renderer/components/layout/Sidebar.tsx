@@ -417,7 +417,9 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
               name={section.name}
               isDefault={section.isDefault}
               isCollapsed={isCollapsed}
+              isSelected={false}
               onToggleCollapse={() => toggleSectionCollapse(sectionKey)}
+              onSelectSection={() => {}}
               onAddProject={() => handleOpenSectionMenu(sectionKey, section.name)}
               onContextMenu={(e) => sectionContextMenu.open(e, { name: section.name, isDefault: section.isDefault })}
               dragAttributes={attributes}
