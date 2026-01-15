@@ -1,5 +1,6 @@
 import { ChevronDown, Plus } from 'lucide-react'
 import { useDroppable, type DraggableAttributes, type DraggableSyntheticListeners } from '@dnd-kit/core'
+import { DEFAULT_SECTION_KEY } from '@shared/types'
 
 interface SectionHeaderProps {
   name: string
@@ -32,7 +33,7 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `section-drop-${name}`,
-    data: { sectionName: isDefault ? '' : name },
+    data: { sectionName: isDefault ? DEFAULT_SECTION_KEY : name },
   })
 
   const setNodeRef = (node: HTMLDivElement | null) => {
