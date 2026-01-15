@@ -10,6 +10,17 @@ export type RepeatFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type RepeatFrom = 'due_date' | 'completion_date'
 export type DayOfWeek = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
 
+export const REMINDER_OFFSETS = [
+  { value: 0, label: 'At time' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 180, label: '3 hours' },
+  { value: 1440, label: '1 day' },
+] as const
+
+export type ReminderOffset = typeof REMINDER_OFFSETS[number]['value']
+
 export interface RepeatConfig {
   frequency: RepeatFrequency
   interval: number
