@@ -1,6 +1,5 @@
 import { Notification, BrowserWindow } from 'electron'
 import type { VaultItem, TaskMeta } from '../../shared/types'
-import * as fileService from './file-service'
 
 console.log('[Reminders] Module loaded')
 
@@ -20,21 +19,22 @@ export function setMainWindow(window: BrowserWindow): void {
   mainWindowRef = window
 }
 
-async function fireReminder(task: ReminderTask): Promise<void> {
-  console.log(`[Reminders] Firing reminder for task: ${task.title} (${task.id})`)
-
-  // Remove from timers map
-  timers.delete(task.id)
+async function fireSingleReminder(task: ReminderTask, offsetMinutes: number): Promise<void> {
+  console.log(`[Reminders] Firing reminder for task: ${task.title} (${task.id}), offset: ${offsetMinutes}min`)
 
   if (!Notification.isSupported()) {
     console.error('[Reminders] Notifications not supported on this system')
     return
   }
 
-  // Show notification
+  const offsetLabel = offsetMinutes === 0 ? 'now' :
+    offsetMinutes < 60 ? `in ${offsetMinutes} min` :
+    offsetMinutes < 1440 ? `in ${offsetMinutes / 60} hour${offsetMinutes > 60 ? 's' : ''}` :
+    'in 1 day'
+
   const notification = new Notification({
     title: task.title,
-    body: 'Reminder',
+    body: offsetMinutes === 0 ? 'Due now' : `Due ${offsetLabel}`,
     silent: false,
   })
 
@@ -46,54 +46,67 @@ async function fireReminder(task: ReminderTask): Promise<void> {
     }
   })
 
-  notification.on('show', () => {
-    console.log(`[Reminders] Notification shown for task: ${task.id}`)
-  })
-
-  notification.on('failed', (_event, error) => {
-    console.error(`[Reminders] Notification failed for task: ${task.id}`, error)
-  })
-
   notification.show()
-
-  // Clear reminder from file
-  const updatedMeta: TaskMeta = { ...task.meta, reminder: undefined }
-  const updatedTask: VaultItem = { ...task, meta: updatedMeta }
-  await fileService.forceWriteFile(task.path, updatedTask)
 }
 
 export function scheduleReminder(task: ReminderTask): void {
   console.log(`[Reminders] scheduleReminder called for: ${task.title} (${task.id})`)
-  console.log(`[Reminders]   reminder value: ${task.meta.reminder}`)
 
-  // Cancel existing timer if any
-  const existing = timers.get(task.id)
-  if (existing) {
-    clearTimeout(existing)
-    timers.delete(task.id)
+  // Cancel existing timers
+  cancelReminder(task.id)
+
+  const { due, reminders } = task.meta
+
+  // Need both due date with time and reminders array
+  if (!due || !reminders || reminders.length === 0) {
+    console.log(`[Reminders]   no due date or reminders, skipping`)
+    return
   }
 
-  const reminderTime = task.meta.reminder
-  if (!reminderTime) {
-    console.log(`[Reminders]   no reminder time, skipping`)
+  const dueDate = new Date(due)
+  // Skip if due date has no time component (midnight = no time set)
+  if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0) {
+    console.log(`[Reminders]   due date has no time, skipping`)
     return
   }
 
   const now = Date.now()
-  const reminderMs = new Date(reminderTime).getTime()
-  const delay = reminderMs - now
+  const dueMs = dueDate.getTime()
+  const taskTimers: NodeJS.Timeout[] = []
 
-  console.log(`[Reminders]   now: ${now}, reminderMs: ${reminderMs}, delay: ${delay}ms (${Math.round(delay / 1000)}s)`)
+  for (const offsetMinutes of reminders) {
+    const reminderMs = dueMs - (offsetMinutes * 60 * 1000)
+    const delay = reminderMs - now
 
-  if (delay <= 0) {
-    // Fire immediately for past reminders
-    console.log(`[Reminders]   firing immediately (past reminder)`)
-    fireReminder(task)
-  } else {
-    // Schedule future reminder
-    console.log(`[Reminders]   scheduling for ${delay}ms from now`)
-    const timer = setTimeout(() => fireReminder(task), delay)
-    timers.set(task.id, timer)
+    console.log(`[Reminders]   offset ${offsetMinutes}min: delay ${delay}ms (${Math.round(delay / 1000)}s)`)
+
+    if (delay <= 0) {
+      // Skip past reminders
+      console.log(`[Reminders]     skipping (in past)`)
+      continue
+    }
+
+    const timer = setTimeout(() => {
+      fireSingleReminder(task, offsetMinutes)
+      // Remove this timer from the array
+      const currentTimers = timers.get(task.id)
+      if (currentTimers) {
+        const index = currentTimers.indexOf(timer)
+        if (index > -1) {
+          currentTimers.splice(index, 1)
+        }
+        if (currentTimers.length === 0) {
+          timers.delete(task.id)
+        }
+      }
+    }, delay)
+
+    taskTimers.push(timer)
+  }
+
+  if (taskTimers.length > 0) {
+    timers.set(task.id, taskTimers)
+    console.log(`[Reminders]   scheduled ${taskTimers.length} reminder(s)`)
   }
 }
 
