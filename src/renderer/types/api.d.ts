@@ -22,6 +22,7 @@ export interface API {
   onFileChanged: (callback: (data: VaultItem) => void) => () => void
   onFileAdded: (callback: (data: VaultItem) => void) => () => void
   onFileDeleted: (callback: (path: string) => void) => () => void
+  onReminderClicked: (callback: (data: { taskId: string }) => void) => () => void
 }
 
 declare global {
