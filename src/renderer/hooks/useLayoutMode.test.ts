@@ -19,14 +19,14 @@ describe('useLayoutMode', () => {
     expect(result.current).toBe('full')
   })
 
-  it('returns "compact" for width 640-899', () => {
+  it('returns "compact" for width 480-899', () => {
     Object.defineProperty(window, 'innerWidth', { value: 700, writable: true })
     const { result } = renderHook(() => useLayoutMode())
     expect(result.current).toBe('compact')
   })
 
-  it('returns "mobile" for width < 640', () => {
-    Object.defineProperty(window, 'innerWidth', { value: 500, writable: true })
+  it('returns "mobile" for width < 480', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 400, writable: true })
     const { result } = renderHook(() => useLayoutMode())
     expect(result.current).toBe('mobile')
   })
