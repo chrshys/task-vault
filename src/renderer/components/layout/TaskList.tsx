@@ -326,29 +326,31 @@ export function TaskList() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
-      <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4 flex items-center justify-between">
-        {editingTitle !== null ? (
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={editingTitle}
-            onChange={(e) => setEditingTitle(e.target.value)}
-            onKeyDown={handleTitleKeyDown}
-            className="text-lg font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 outline-none flex-1"
-          />
-        ) : (
-          <h2
-            className={`text-lg font-semibold text-gray-900 dark:text-white ${selectedView === 'project' ? 'cursor-context-menu' : ''}`}
-            onContextMenu={(e) => {
-              if (selectedView === 'project' && selectedPath) {
-                contextMenu.open(e, null)
-              }
-            }}
-          >
-            {viewTitle}
-          </h2>
-        )}
-      </div>
+      {selectedView !== 'section' && (
+        <div className="max-w-3xl w-full mx-auto px-4 pt-6 pb-4 flex items-center justify-between">
+          {editingTitle !== null ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              className="text-lg font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 outline-none flex-1"
+            />
+          ) : (
+            <h2
+              className={`text-lg font-semibold text-gray-900 dark:text-white ${selectedView === 'project' ? 'cursor-context-menu' : ''}`}
+              onContextMenu={(e) => {
+                if (selectedView === 'project' && selectedPath) {
+                  contextMenu.open(e, null)
+                }
+              }}
+            >
+              {viewTitle}
+            </h2>
+          )}
+        </div>
+      )}
 
       {selectedView !== 'section' && (
         <div className="max-w-3xl w-full mx-auto px-4 pb-4">
@@ -445,7 +447,7 @@ export function TaskList() {
       )}
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl w-full mx-auto px-4 pb-4">
+        <div className={`max-w-3xl w-full mx-auto px-4 pb-4 ${selectedView === 'section' ? 'pt-4' : ''}`}>
         {selectedView === 'section' ? (
           // Section view with project groups
           sectionProjects.length === 0 ? (
