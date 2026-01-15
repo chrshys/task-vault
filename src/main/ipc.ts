@@ -3,6 +3,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import type { AppSettings, VaultConfig, VaultItem, ItemType } from '../shared/types'
 import * as fileService from './services/file-service'
+import * as reminderService from './services/reminder-service'
 
 let mainWindowRef: BrowserWindow | null = null
 
@@ -32,6 +33,7 @@ async function saveSettings(settings: AppSettings): Promise<void> {
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   mainWindowRef = mainWindow
+  reminderService.setMainWindow(mainWindow)
   ipcMain.handle('settings:get', async () => {
     return loadSettings()
   })
@@ -55,6 +57,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     settings.vaultPath = folderPath
     await saveSettings(settings)
     const items = await fileService.loadVault(folderPath)
+    reminderService.initialize(items)
     if (mainWindowRef) {
       await fileService.watchVault(mainWindowRef)
     }
@@ -63,6 +66,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('vault:load', async (_event, folderPath: string) => {
     const items = await fileService.loadVault(folderPath)
+    reminderService.initialize(items)
     if (mainWindowRef) {
       await fileService.watchVault(mainWindowRef)
     }
