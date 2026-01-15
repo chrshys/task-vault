@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import type { RepeatConfig, RepeatFrequency, RepeatFrom } from '@shared/types'
+import { REMINDER_OFFSETS } from '@shared/types'
 
 interface DueDatePickerProps {
   dueDate: Date | null
   repeat: RepeatConfig | null
+  reminders: number[]
   onDateChange: (date: Date | null) => void
   onRepeatChange: (repeat: RepeatConfig | null) => void
+  onRemindersChange: (reminders: number[]) => void
 }
 
 const frequencies: { value: RepeatFrequency; label: string }[] = [
@@ -18,8 +21,10 @@ const frequencies: { value: RepeatFrequency; label: string }[] = [
 export function DueDatePicker({
   dueDate,
   repeat,
+  reminders,
   onDateChange,
   onRepeatChange,
+  onRemindersChange,
 }: DueDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [viewDate, setViewDate] = useState(() => dueDate || new Date())
@@ -31,8 +36,12 @@ export function DueDatePicker({
 
   // Extract time from dueDate
   const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false
-  const hours = dueDate?.getHours() ?? 9
+  const hours24 = dueDate?.getHours() ?? 9
   const minutes = dueDate?.getMinutes() ?? 0
+
+  // Convert to 12-hour format
+  const isPM = hours24 >= 12
+  const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24
 
   // Sync viewDate when dueDate changes
   if (dueDate !== prevDueDate) {
@@ -121,13 +130,21 @@ export function DueDatePicker({
     onDateChange(newDate)
   }
 
-  const handleTimeChange = (newHours: number, newMinutes: number) => {
+  const handleTimeChange = (newHours12: number, newMinutes: number, newIsPM: boolean) => {
+    // Convert 12-hour to 24-hour format
+    let newHours24 = newHours12
+    if (newHours12 === 12) {
+      newHours24 = newIsPM ? 12 : 0
+    } else {
+      newHours24 = newIsPM ? newHours12 + 12 : newHours12
+    }
+
     if (!dueDate) {
       const today = new Date()
-      today.setHours(newHours, newMinutes, 0, 0)
+      today.setHours(newHours24, newMinutes, 0, 0)
       onDateChange(today)
     } else {
-      setDateWithTime(dueDate, { hours: newHours, minutes: newMinutes })
+      setDateWithTime(dueDate, { hours: newHours24, minutes: newMinutes })
     }
   }
 
@@ -422,27 +439,35 @@ export function DueDatePicker({
             {timeExpanded && (
               <div className="px-4 pb-3 flex items-center gap-2">
                 <select
-                  value={hours}
-                  onChange={(e) => handleTimeChange(parseInt(e.target.value), minutes)}
+                  value={hours12}
+                  onChange={(e) => handleTimeChange(parseInt(e.target.value), minutes, isPM)}
                   className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-800 dark:text-gray-200"
                 >
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>
-                      {i.toString().padStart(2, '0')}
+                  {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((h) => (
+                    <option key={h} value={h}>
+                      {h}
                     </option>
                   ))}
                 </select>
                 <span className="text-gray-500">:</span>
                 <select
-                  value={minutes}
-                  onChange={(e) => handleTimeChange(hours, parseInt(e.target.value))}
+                  value={Math.floor(minutes / 15) * 15}
+                  onChange={(e) => handleTimeChange(hours12, parseInt(e.target.value), isPM)}
                   className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-800 dark:text-gray-200"
                 >
-                  {Array.from({ length: 60 }, (_, i) => (
-                    <option key={i} value={i}>
-                      {i.toString().padStart(2, '0')}
+                  {[0, 15, 30, 45].map((m) => (
+                    <option key={m} value={m}>
+                      {m.toString().padStart(2, '0')}
                     </option>
                   ))}
+                </select>
+                <select
+                  value={isPM ? 'PM' : 'AM'}
+                  onChange={(e) => handleTimeChange(hours12, minutes, e.target.value === 'PM')}
+                  className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-800 dark:text-gray-200"
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
                 </select>
                 {hasTime && (
                   <button
