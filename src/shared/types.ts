@@ -87,7 +87,7 @@ export interface VaultConfig {
   defaultSectionName?: string
 }
 
-export type ViewType = 'today' | 'next7' | 'inbox' | 'project'
+export type ViewType = 'today' | 'next7' | 'inbox' | 'project' | 'section'
 
 export interface TreeNode {
   id: string

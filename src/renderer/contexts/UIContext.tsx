@@ -29,6 +29,32 @@ function saveCollapsedSections(vaultPath: string | null, collapsed: Set<string>)
   }
 }
 
+const COLLAPSED_PROJECT_GROUPS_KEY = 'tasklist-project-groups-collapsed'
+
+function loadCollapsedProjectGroups(vaultPath: string | null): Set<string> {
+  if (!vaultPath) return new Set()
+  try {
+    const data = localStorage.getItem(COLLAPSED_PROJECT_GROUPS_KEY)
+    if (!data) return new Set()
+    const parsed = JSON.parse(data)
+    return new Set(parsed[vaultPath] || [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveCollapsedProjectGroups(vaultPath: string | null, collapsed: Set<string>) {
+  if (!vaultPath) return
+  try {
+    const data = localStorage.getItem(COLLAPSED_PROJECT_GROUPS_KEY)
+    const parsed = data ? JSON.parse(data) : {}
+    parsed[vaultPath] = Array.from(collapsed)
+    localStorage.setItem(COLLAPSED_PROJECT_GROUPS_KEY, JSON.stringify(parsed))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 interface UIContextValue {
   selectedView: ViewType
   selectedPath: string | null
@@ -56,11 +82,16 @@ interface UIContextValue {
   isSectionCollapsed: (sectionName: string) => boolean
   openQuickAdd: (type: 'task' | 'note') => void
   closeQuickAdd: () => void
+  selectedSectionName: string | null
+  collapsedProjectGroups: Set<string>
+  setSelectedSection: (sectionName: string | null) => void
+  toggleProjectGroupCollapse: (projectPath: string) => void
+  isProjectGroupCollapsed: (projectPath: string) => boolean
 }
 
 const UIContext = createContext<UIContextValue | null>(null)
 
-type NavigationState = { view: ViewType, path: string | null, taskId: string | null }
+type NavigationState = { view: ViewType, path: string | null, taskId: string | null, sectionName: string | null }
 
 export function UIProvider({ children, vaultPath = null }: { children: ReactNode, vaultPath?: string | null }) {
   const [selectedView, setSelectedViewState] = useState<ViewType>('inbox')
@@ -70,6 +101,8 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddType, setQuickAddType] = useState<'task' | 'note'>('task')
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [selectedSectionName, setSelectedSectionName] = useState<string | null>(null)
+  const [collapsedProjectGroups, setCollapsedProjectGroups] = useState<Set<string>>(new Set())
   const [navHistory, setNavHistory] = useState<NavigationState[]>([])
   const [navIndex, setNavIndex] = useState(-1)
   const suppressNavRef = useRef(false)
@@ -90,6 +123,16 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     saveCollapsedSections(vaultPath, collapsedSections)
   }, [vaultPath, collapsedSections])
 
+  // Load collapsed project groups when vault changes
+  useEffect(() => {
+    setCollapsedProjectGroups(loadCollapsedProjectGroups(vaultPath))
+  }, [vaultPath])
+
+  // Save collapsed project groups when they change
+  useEffect(() => {
+    saveCollapsedProjectGroups(vaultPath, collapsedProjectGroups)
+  }, [vaultPath, collapsedProjectGroups])
+
   const pushNavState = useCallback((state: NavigationState) => {
     if (suppressNavRef.current) return
     setNavHistory(prev => [...prev.slice(0, navIndex + 1), state])
@@ -100,13 +143,14 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     setSelectedViewState(view)
     setSelectedPath(path || null)
     setSelectedTaskId(null)
-    pushNavState({ view, path: path || null, taskId: null })
+    setSelectedSectionName(null) // Clear section when selecting other views
+    pushNavState({ view, path: path || null, taskId: null, sectionName: null })
   }, [pushNavState])
 
   const setSelectedTaskIdWithNav = useCallback((id: string | null) => {
     setSelectedTaskId(id)
-    pushNavState({ view: selectedView, path: selectedPath, taskId: id })
-  }, [pushNavState, selectedView, selectedPath])
+    pushNavState({ view: selectedView, path: selectedPath, taskId: id, sectionName: selectedSectionName })
+  }, [pushNavState, selectedView, selectedPath, selectedSectionName])
 
   const canGoBack = navIndex > 0
   const canGoForward = navIndex < navHistory.length - 1
@@ -116,6 +160,7 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     setSelectedViewState(state.view)
     setSelectedPath(state.path)
     setSelectedTaskId(state.taskId)
+    setSelectedSectionName(state.sectionName ?? null)
     queueMicrotask(() => { suppressNavRef.current = false })
   }, [])
 
@@ -173,6 +218,33 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
     return collapsedSections.has(sectionName)
   }, [collapsedSections])
 
+  const setSelectedSection = useCallback((sectionName: string | null) => {
+    if (sectionName) {
+      setSelectedViewState('section')
+      setSelectedPath(null) // Clear project selection
+      setSelectedSectionName(sectionName)
+      pushNavState({ view: 'section', path: null, taskId: null, sectionName: sectionName })
+    } else {
+      setSelectedSectionName(null)
+    }
+  }, [pushNavState])
+
+  const toggleProjectGroupCollapse = useCallback((projectPath: string) => {
+    setCollapsedProjectGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(projectPath)) {
+        next.delete(projectPath)
+      } else {
+        next.add(projectPath)
+      }
+      return next
+    })
+  }, [])
+
+  const isProjectGroupCollapsed = useCallback((projectPath: string) => {
+    return collapsedProjectGroups.has(projectPath)
+  }, [collapsedProjectGroups])
+
   const openQuickAdd = useCallback((type: 'task' | 'note') => {
     setQuickAddType(type)
     setShowQuickAdd(true)
@@ -211,6 +283,11 @@ export function UIProvider({ children, vaultPath = null }: { children: ReactNode
         isSectionCollapsed,
         openQuickAdd,
         closeQuickAdd,
+        selectedSectionName,
+        collapsedProjectGroups,
+        setSelectedSection,
+        toggleProjectGroupCollapse,
+        isProjectGroupCollapsed,
       }}
     >
       {children}
