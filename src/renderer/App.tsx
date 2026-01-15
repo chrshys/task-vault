@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import path from 'path-browserify'
 import { VaultProvider, useVault } from './contexts/VaultContext'
 import { UIProvider, useUI } from './contexts/UIContext'
 import { TreeDndProvider } from './contexts/TreeDndContext'
@@ -31,6 +32,35 @@ function MainLayout() {
   )
 }
 
+function ReminderHandler() {
+  const { setSelectedView, setSelectedTaskId } = useUI()
+  const { items, vaultPath } = useVault()
+
+  useEffect(() => {
+    const unsubscribe = window.api.onReminderClicked(({ taskId }) => {
+      const task = items.get(taskId)
+      if (!task) return
+
+      // Determine which view to show
+      const taskDir = path.dirname(task.path)
+      const inboxPath = vaultPath ? path.join(vaultPath, 'Inbox') : null
+
+      if (inboxPath && taskDir === inboxPath) {
+        setSelectedView('inbox')
+      } else {
+        setSelectedView('project', taskDir)
+      }
+
+      // Select the task after a tick to ensure view is set
+      setTimeout(() => setSelectedTaskId(taskId), 0)
+    })
+
+    return unsubscribe
+  }, [items, vaultPath, setSelectedView, setSelectedTaskId])
+
+  return null
+}
+
 function AppContent() {
   const { vaultPath, loadVault, loading, conflictDialogProps } = useVault()
   const [initialized, setInitialized] = useState(false)
@@ -60,6 +90,7 @@ function AppContent() {
 
   return (
     <HistoryProvider>
+      <ReminderHandler />
       <MainLayout />
       {conflictDialogProps && <ConflictDialog {...conflictDialogProps} />}
     </HistoryProvider>
