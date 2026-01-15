@@ -121,7 +121,7 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
           )}
         </div>
         {item.content && (
-          <p className="text-xs text-gray-500 break-words">
+          <p className="text-xs text-gray-500 line-clamp-2">
             {getFirstLine(item.content)}
           </p>
         )}
