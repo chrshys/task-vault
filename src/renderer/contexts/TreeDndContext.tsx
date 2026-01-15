@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useVault } from './VaultContext'
-import type { VaultItem, TreeNode, TaskMeta, ProjectMeta } from '@shared/types'
+import { DEFAULT_SECTION_KEY, type VaultItem, type TreeNode, type TaskMeta, type ProjectMeta } from '@shared/types'
 import path from 'path-browserify'
 
 interface TreeDndContextValue {
@@ -91,7 +91,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
         const sectionName = overData?.sectionName as string | undefined
         if (draggedItem.meta.type === 'project') {
           const projectPath = path.dirname(draggedItem.path)
-          await setProjectSection(projectPath, sectionName || null)
+          await setProjectSection(projectPath, sectionName === DEFAULT_SECTION_KEY ? null : sectionName ?? null)
         }
         return
       }
@@ -99,8 +99,8 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
       // Handle project reordering within a section
       if (draggedItem.meta.type === 'project') {
         if (overData?.type === 'project') {
-          const sourceSectionKey = activeData?.sectionKey ?? ''
-          const targetSectionKey = overData.sectionKey ?? ''
+          const sourceSectionKey = activeData?.sectionKey ?? DEFAULT_SECTION_KEY
+          const targetSectionKey = overData.sectionKey ?? DEFAULT_SECTION_KEY
           const projectSorter = (a: VaultItem, b: VaultItem) => {
             const aOrder = (a.meta as ProjectMeta).sort_order ?? Number.POSITIVE_INFINITY
             const bOrder = (b.meta as ProjectMeta).sort_order ?? Number.POSITIVE_INFINITY
@@ -110,7 +110,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
 
           if (sourceSectionKey === targetSectionKey) {
             const siblings = Array.from(items.values())
-              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === sourceSectionKey)
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || DEFAULT_SECTION_KEY) === sourceSectionKey)
               .sort(projectSorter)
 
             const oldIndex = siblings.findIndex(i => i.id === activeId)
@@ -124,10 +124,10 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
             }
           } else {
             const sourceSiblings = Array.from(items.values())
-              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === sourceSectionKey)
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || DEFAULT_SECTION_KEY) === sourceSectionKey)
               .sort(projectSorter)
             const targetSiblings = Array.from(items.values())
-              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || '') === targetSectionKey)
+              .filter(item => item.meta.type === 'project' && ((item.meta as ProjectMeta).section || DEFAULT_SECTION_KEY) === targetSectionKey)
               .sort(projectSorter)
 
             const draggedProject = sourceSiblings.find(i => i.id === activeId) ?? draggedItem
@@ -138,7 +138,7 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
             reorderedTarget.splice(insertIndex, 0, draggedProject)
 
             const projectPath = path.dirname(draggedItem.path)
-            await setProjectSection(projectPath, targetSectionKey || null)
+            await setProjectSection(projectPath, targetSectionKey === DEFAULT_SECTION_KEY ? null : targetSectionKey)
 
             for (let i = 0; i < reorderedTarget.length; i++) {
               await updateSortOrder(reorderedTarget[i].id, i)
