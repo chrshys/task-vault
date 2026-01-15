@@ -102,8 +102,10 @@ export function SubtaskList({ parentId }: SubtaskListProps) {
               <DueDatePicker
                 dueDate={selectedDueDate}
                 repeat={selectedRepeat}
+                reminders={[]}
                 onDateChange={setSelectedDueDate}
                 onRepeatChange={setSelectedRepeat}
+                onRemindersChange={() => {}}
               />
               <button
                 type="button"

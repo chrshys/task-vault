@@ -411,8 +411,10 @@ export function TaskList() {
                         <DueDatePicker
                           dueDate={selectedDueDate}
                           repeat={selectedRepeat}
+                          reminders={[]}
                           onDateChange={setSelectedDueDate}
                           onRepeatChange={setSelectedRepeat}
+                          onRemindersChange={() => {}}
                         />
                       </div>
                     )}

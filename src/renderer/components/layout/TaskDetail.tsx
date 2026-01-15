@@ -93,6 +93,14 @@ export function TaskDetail() {
     })
   }
 
+  const handleRemindersChange = (reminders: number[]) => {
+    if (!localItem || localItem.meta.type !== 'task') return
+    setLocalItem({
+      ...localItem,
+      meta: { ...localItem.meta, reminders } as TaskMeta,
+    })
+  }
+
   const handleConvert = async () => {
     if (!localItem) return
     const newType = localItem.meta.type === 'task' ? 'note' : 'task'
@@ -176,8 +184,10 @@ export function TaskDetail() {
             <DueDatePicker
               dueDate={due ? new Date(due) : null}
               repeat={repeat ?? null}
+              reminders={taskMeta?.reminders ?? []}
               onDateChange={(date) => handleDueChange(date?.toISOString() || '')}
               onRepeatChange={handleRepeatChange}
+              onRemindersChange={handleRemindersChange}
             />
           </>
         )}
