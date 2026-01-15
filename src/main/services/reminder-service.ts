@@ -122,27 +122,30 @@ export function initialize(tasks: VaultItem[]): void {
   checkNotificationPermissions()
 
   // Clear all existing timers
-  for (const timer of timers.values()) {
-    clearTimeout(timer)
+  for (const taskTimers of timers.values()) {
+    taskTimers.forEach(timer => clearTimeout(timer))
   }
   timers.clear()
 
-  // Schedule reminders for all tasks with reminders set
+  // Schedule reminders for all tasks with reminders array set
   let scheduledCount = 0
   for (const item of tasks) {
-    if (item.meta.type === 'task' && item.meta.reminder) {
-      scheduleReminder(item as ReminderTask)
-      scheduledCount++
+    if (item.meta.type === 'task') {
+      const task = item as ReminderTask
+      if (task.meta.reminders && task.meta.reminders.length > 0 && task.meta.due) {
+        scheduleReminder(task)
+        scheduledCount++
+      }
     }
   }
-  console.log(`[Reminders] Initialized. Scheduled ${scheduledCount} reminder(s)`)
+  console.log(`[Reminders] Initialized. Scheduled reminders for ${scheduledCount} task(s)`)
 }
 
 export function handleFileChange(item: VaultItem): void {
   if (item.meta.type !== 'task') return
 
   const task = item as ReminderTask
-  if (task.meta.reminder) {
+  if (task.meta.reminders && task.meta.reminders.length > 0 && task.meta.due) {
     scheduleReminder(task)
   } else {
     cancelReminder(task.id)
