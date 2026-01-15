@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ListTodo } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -46,9 +46,44 @@ function SortableTaskRow({ item, onToggleComplete }: { item: VaultItem; onToggle
   )
 }
 
+function ProjectGroupHeader({
+  name,
+  path: _projectPath,
+  taskCount,
+  isCollapsed,
+  onToggleCollapse
+}: {
+  name: string
+  path: string
+  taskCount: number
+  isCollapsed: boolean
+  onToggleCollapse: () => void
+}) {
+  return (
+    <button
+      onClick={onToggleCollapse}
+      className="w-full flex items-center gap-2 px-1 py-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+    >
+      <ChevronDown
+        size={14}
+        className={`flex-shrink-0 transition-transform duration-200 ${
+          isCollapsed ? '-rotate-90' : ''
+        }`}
+      />
+      <ListTodo size={14} className="flex-shrink-0 text-gray-400 dark:text-gray-500" />
+      <span className="truncate">{name}</span>
+      {taskCount > 0 && (
+        <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums ml-auto">
+          {taskCount}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function TaskList() {
-  const { items, vaultPath, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem, renameProject } = useVault()
-  const { selectedView, selectedPath, setSelectedView } = useUI()
+  const { items, vaultPath, sections, getTodayTasks, getNext7DaysTasks, getInboxItems, createItem, updateItem, renameProject } = useVault()
+  const { selectedView, selectedPath, setSelectedView, selectedSectionName, toggleProjectGroupCollapse, isProjectGroupCollapsed } = useUI()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [createType, setCreateType] = useState<'task' | 'note'>('task')
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -66,6 +101,37 @@ export function TaskList() {
       return false
     }
   })
+
+  // Get projects for the selected section with their pending tasks
+  const sectionProjects = useMemo(() => {
+    if (selectedView !== 'section' || !selectedSectionName) return []
+
+    const section = sections.find(s =>
+      (s.isDefault && selectedSectionName === '') ||
+      (!s.isDefault && s.name === selectedSectionName)
+    )
+    if (!section) return []
+
+    return section.projects.map(project => {
+      const projectTasks = Array.from(items.values())
+        .filter(item => {
+          if (item.meta.type === 'project') return false
+          if (item.meta.type === 'task') {
+            const taskMeta = item.meta as TaskMeta
+            // Filter out completed tasks and subtasks
+            if (taskMeta.status === 'completed') return false
+            if (taskMeta.parent) return false
+          }
+          return path.dirname(item.path) === project.path
+        })
+        .sort((a, b) => (a.meta.sort_order ?? Infinity) - (b.meta.sort_order ?? Infinity))
+
+      return {
+        ...project,
+        tasks: projectTasks,
+      }
+    })
+  }, [selectedView, selectedSectionName, sections, items])
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -141,10 +207,13 @@ export function TaskList() {
       case 'project':
         if (!selectedPath) return ''
         return path.basename(selectedPath)
+      case 'section':
+        if (!selectedSectionName) return ''
+        return selectedSectionName === '' ? 'Projects' : selectedSectionName
       default:
         return ''
     }
-  }, [selectedView, selectedPath])
+  }, [selectedView, selectedPath, selectedSectionName])
 
   const handleToggleComplete = async (item: VaultItem) => {
     if (item.meta.type !== 'task') return
@@ -283,101 +352,150 @@ export function TaskList() {
         )}
       </div>
 
-      <div className="max-w-3xl w-full mx-auto px-4 pb-4">
-        <div
-          ref={inputWrapperRef}
-          className={`rounded-lg border transition-colors ${
-            isInputFocused || newTaskTitle
-              ? 'border-blue-500 bg-gray-100 dark:bg-gray-700/50'
-              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-          }`}
-        >
-          <form onSubmit={handleCreateItem}>
-            <input
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={handleInputBlur}
-              placeholder="Quick capture..."
-              className="w-full px-3 py-3 bg-transparent rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
-            />
+      {selectedView !== 'section' && (
+        <div className="max-w-3xl w-full mx-auto px-4 pb-4">
+          <div
+            ref={inputWrapperRef}
+            className={`rounded-lg border transition-colors ${
+              isInputFocused || newTaskTitle
+                ? 'border-blue-500 bg-gray-100 dark:bg-gray-700/50'
+                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            }`}
+          >
+            <form onSubmit={handleCreateItem}>
+              <input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={handleInputBlur}
+                placeholder="Quick capture..."
+                className="w-full px-3 py-3 bg-transparent rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
+              />
 
-            {/* Control Ribbon - shows when focused OR has content */}
-            {(isInputFocused || newTaskTitle) && (
-              <div className="flex items-center justify-between px-2 py-2 border-t border-gray-200 dark:border-gray-600">
-                <div className="flex items-center gap-1">
-                  {/* Task/Note Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreateType(t => {
-                        if (t === 'task') {
-                          setSelectedDueDate(null)
-                          setSelectedRepeat(null)
-                          return 'note'
-                        }
-                        return 'task'
-                      })
-                    }}
-                    className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                    title={createType === 'task' ? 'Switch to Note' : 'Switch to Task'}
-                  >
-                    {createType === 'task' ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <path d="M9 12l2 2 4-4" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+              {/* Control Ribbon - shows when focused OR has content */}
+              {(isInputFocused || newTaskTitle) && (
+                <div className="flex items-center justify-between px-2 py-2 border-t border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center gap-1">
+                    {/* Task/Note Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreateType(t => {
+                          if (t === 'task') {
+                            setSelectedDueDate(null)
+                            setSelectedRepeat(null)
+                            return 'note'
+                          }
+                          return 'task'
+                        })
+                      }}
+                      className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                      title={createType === 'task' ? 'Switch to Note' : 'Switch to Task'}
+                    >
+                      {createType === 'task' ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <path d="M9 12l2 2 4-4" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Due Date Button - only for tasks */}
+                    {createType === 'task' && (
+                      <div className="relative">
+                        <DueDatePicker
+                          dueDate={selectedDueDate}
+                          repeat={selectedRepeat}
+                          onDateChange={setSelectedDueDate}
+                          onRepeatChange={setSelectedRepeat}
+                        />
+                      </div>
                     )}
-                  </button>
 
-                  {/* Due Date Button - only for tasks */}
-                  {createType === 'task' && (
-                    <div className="relative">
-                      <DueDatePicker
-                        dueDate={selectedDueDate}
-                        repeat={selectedRepeat}
-                        onDateChange={setSelectedDueDate}
-                        onRepeatChange={setSelectedRepeat}
-                      />
-                    </div>
-                  )}
+                    {/* More Options */}
+                    <button
+                      type="button"
+                      className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                      title="More options"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="5" cy="12" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="19" cy="12" r="2" />
+                      </svg>
+                    </button>
+                  </div>
 
-                  {/* More Options */}
+                  {/* Add Button */}
                   <button
-                    type="button"
-                    className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                    title="More options"
+                    type="submit"
+                    disabled={!newTaskTitle.trim()}
+                    className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <circle cx="5" cy="12" r="2" />
-                      <circle cx="12" cy="12" r="2" />
-                      <circle cx="19" cy="12" r="2" />
-                    </svg>
+                    Add
                   </button>
                 </div>
-
-                {/* Add Button */}
-                <button
-                  type="submit"
-                  disabled={!newTaskTitle.trim()}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-          </form>
+              )}
+            </form>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl w-full mx-auto px-4 pb-4">
-        {pendingItems.length === 0 && completedItems.length === 0 ? (
+        {selectedView === 'section' ? (
+          // Section view with project groups
+          sectionProjects.length === 0 ? (
+            <EmptyState
+              icon="(folder)"
+              title="No projects in this section"
+              description="Add projects to this section from the sidebar."
+            />
+          ) : (
+            <div className="space-y-2">
+              {sectionProjects.map((project) => {
+                const isCollapsed = isProjectGroupCollapsed(project.path)
+                return (
+                  <div key={project.id}>
+                    <ProjectGroupHeader
+                      name={project.name}
+                      path={project.path}
+                      taskCount={project.tasks.length}
+                      isCollapsed={isCollapsed}
+                      onToggleCollapse={() => toggleProjectGroupCollapse(project.path)}
+                    />
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                        isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                      }`}
+                    >
+                      <div className="overflow-hidden pl-6">
+                        {project.tasks.length === 0 ? (
+                          <p className="py-2 text-sm text-gray-400 dark:text-gray-500 italic">
+                            No tasks in this project
+                          </p>
+                        ) : (
+                          project.tasks.map((item) => (
+                            <TaskRow
+                              key={item.id}
+                              item={item}
+                              onToggleComplete={handleToggleComplete}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        ) : pendingItems.length === 0 && completedItems.length === 0 ? (
           <EmptyState
             {...(selectedView === 'today' ? {
               icon: '(tada)',
