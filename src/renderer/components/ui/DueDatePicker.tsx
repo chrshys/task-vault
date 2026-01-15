@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { RepeatConfig, RepeatFrequency, RepeatFrom } from '@shared/types'
 import { REMINDER_OFFSETS } from '@shared/types'
+import { useDropdownPosition } from '../../hooks/useDropdownPosition'
 
 interface DueDatePickerProps {
   dueDate: Date | null
@@ -32,9 +33,11 @@ export function DueDatePicker({
   const [repeatExpanded, setRepeatExpanded] = useState(false)
   const [reminderExpanded, setReminderExpanded] = useState(false)
   const [prevDueDate, setPrevDueDate] = useState(dueDate)
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevHasTime = useRef(false)
+
+  // Use the reusable dropdown positioning hook
+  const dropdownPosition = useDropdownPosition(containerRef, isOpen, { width: 320, height: 500 })
 
   // Extract time from dueDate
   const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false
@@ -60,29 +63,6 @@ export function DueDatePicker({
     }
     prevHasTime.current = hasTime
   }, [hasTime, reminders.length, onRemindersChange])
-
-  // Update dropdown position when open
-  useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const dropdownWidth = 320 // w-80 = 20rem = 320px
-      const padding = 8
-
-      // Check if right-aligned dropdown would overflow left edge
-      if (rect.right < dropdownWidth + padding) {
-        // Position from left instead
-        setDropdownPosition({
-          top: rect.bottom + 4,
-          left: Math.max(padding, rect.left),
-        })
-      } else {
-        setDropdownPosition({
-          top: rect.bottom + 4,
-          right: window.innerWidth - rect.right,
-        })
-      }
-    }
-  }, [isOpen])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -303,7 +283,7 @@ export function DueDatePicker({
         }`}
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         <span>{dueDate ? getDisplayText() : 'Due date'}</span>
       </button>

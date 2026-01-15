@@ -1,6 +1,7 @@
+import { useState, useRef } from 'react'
 import { format, isToday, isTomorrow, isPast } from 'date-fns'
 import { motion } from 'framer-motion'
-import type { VaultItem, TaskMeta } from '@shared/types'
+import type { VaultItem, TaskMeta, RepeatConfig } from '@shared/types'
 import { REMINDER_OFFSETS } from '@shared/types'
 import { useUI } from '../../contexts/UIContext'
 import { useVault } from '../../contexts/VaultContext'
@@ -8,6 +9,7 @@ import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useConfirm } from '../../hooks/useConfirm'
+import { InlineDueDatePicker } from '../ui/InlineDueDatePicker'
 
 interface TaskRowProps {
   item: VaultItem
@@ -19,9 +21,22 @@ interface TaskRowProps {
 
 function formatDueDate(due: string): string {
   const date = new Date(due)
-  if (isToday(date)) return 'Today'
-  if (isTomorrow(date)) return 'Tomorrow'
-  return format(date, 'MMM d')
+  const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0
+
+  let dateText: string
+  if (isToday(date)) {
+    dateText = 'Today'
+  } else if (isTomorrow(date)) {
+    dateText = 'Tomorrow'
+  } else {
+    dateText = format(date, 'MMM d')
+  }
+
+  if (hasTime) {
+    dateText += ' ' + format(date, 'h:mm a')
+  }
+
+  return dateText
 }
 
 function getFirstLine(html: string): string {
@@ -41,17 +56,56 @@ function formatRemindersTooltip(reminders: number[]): string {
 
 export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSubtaskCount = 0, isNew = false }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useUI()
-  const { deleteItem, duplicateItem, convertItem } = useVault()
+  const { deleteItem, duplicateItem, convertItem, updateItem } = useVault()
   const contextMenu = useContextMenu<VaultItem>()
   const { confirm, dialogProps } = useConfirm()
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  const datePickerTriggerRef = useRef<HTMLButtonElement>(null)
   const isSelected = selectedTaskId === item.id
   const isTask = item.meta.type === 'task'
   const taskMeta = isTask ? (item.meta as TaskMeta) : null
   const isCompleted = taskMeta?.status === 'completed'
   const due = taskMeta?.due
-  const reminders = taskMeta?.reminders
+  const reminders = taskMeta?.reminders ?? []
+  const repeat = taskMeta?.repeat ?? null
   const hasReminders = reminders && reminders.length > 0
   const isOverdue = due && isPast(new Date(due)) && !isCompleted
+
+  const handleDateChange = async (date: Date | null) => {
+    if (!isTask) return
+    const updatedItem: VaultItem = {
+      ...item,
+      meta: {
+        ...item.meta,
+        due: date?.toISOString(),
+      } as TaskMeta,
+    }
+    await updateItem(updatedItem)
+  }
+
+  const handleRepeatChange = async (newRepeat: RepeatConfig | null) => {
+    if (!isTask) return
+    const updatedItem: VaultItem = {
+      ...item,
+      meta: {
+        ...item.meta,
+        repeat: newRepeat,
+      } as TaskMeta,
+    }
+    await updateItem(updatedItem)
+  }
+
+  const handleRemindersChange = async (newReminders: number[]) => {
+    if (!isTask) return
+    const updatedItem: VaultItem = {
+      ...item,
+      meta: {
+        ...item.meta,
+        reminders: newReminders,
+      } as TaskMeta,
+    }
+    await updateItem(updatedItem)
+  }
 
   const handleDelete = async () => {
     contextMenu.close()
@@ -141,21 +195,39 @@ export function TaskRow({ item, onToggleComplete, subtaskCount = 0, completedSub
         )}
       </div>
 
-      {due && !isCompleted && (
-        <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-          {hasReminders && (
-            <span
-              className="text-gray-400 dark:text-gray-500"
-              title={`Reminders: ${formatRemindersTooltip(reminders)}`}
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </span>
-          )}
-          <span className={`text-xs ${isOverdue ? 'text-red-400' : 'text-gray-500'}`}>
-            {formatDueDate(due)}
-          </span>
+      {isTask && !isCompleted && (
+        <div className="flex items-center flex-shrink-0 mt-0.5">
+          <button
+            ref={datePickerTriggerRef}
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsDatePickerOpen(prev => !prev)
+            }}
+            className={`flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md px-2 py-1.5 -my-1 transition-colors ${
+              isOverdue ? 'text-red-400' : hasReminders && due ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+            }`}
+            title={hasReminders ? `Reminders: ${formatRemindersTooltip(reminders)}` : 'No reminder set'}
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {due && (
+              <span className="text-xs">
+                {formatDueDate(due)}
+              </span>
+            )}
+          </button>
+          <InlineDueDatePicker
+            isOpen={isDatePickerOpen}
+            onClose={() => setIsDatePickerOpen(false)}
+            triggerRef={datePickerTriggerRef}
+            dueDate={due ? new Date(due) : null}
+            repeat={repeat}
+            reminders={reminders}
+            onDateChange={handleDateChange}
+            onRepeatChange={handleRepeatChange}
+            onRemindersChange={handleRemindersChange}
+          />
         </div>
       )}
     </motion.div>
