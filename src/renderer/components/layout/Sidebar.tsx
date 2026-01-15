@@ -11,6 +11,7 @@ import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { SectionHeader } from './SectionHeader'
 import type { TreeNode, SectionGroup } from '@shared/types'
+import { DEFAULT_SECTION_KEY } from '@shared/types'
 
 interface SidebarProps {
   forceCollapsed?: boolean
@@ -158,7 +159,7 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
   const handleCreateProjectInSection = async (sectionKey: string, projectName?: string) => {
     const trimmedName = (projectName ?? newProjectName).trim()
     if (!trimmedName) return
-    await createProject(trimmedName, sectionKey || null)
+    await createProject(trimmedName, sectionKey === DEFAULT_SECTION_KEY ? null : sectionKey)
     setNewProjectName('')
     setSectionMenu(null)
   }
@@ -366,7 +367,7 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
   }
 
   const SectionItem = ({ section }: { section: SectionGroup }) => {
-    const sectionKey = section.isDefault ? '' : section.name
+    const sectionKey = section.isDefault ? DEFAULT_SECTION_KEY : section.name
     const sortableId = `section:${section.isDefault ? 'default' : section.name}`
     const isEditing = editingSection === section.name
     const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
@@ -612,7 +613,7 @@ export function Sidebar({ forceCollapsed, onNavigate }: SidebarProps = {}) {
                         : <ProjectItem
                             key={node.id}
                             node={node}
-                            sectionKey={node.sectionName ?? ''}
+                            sectionKey={node.sectionName ?? DEFAULT_SECTION_KEY}
                             onClick={() => setShowListsPopover(false)}
                           />
                     ))}
