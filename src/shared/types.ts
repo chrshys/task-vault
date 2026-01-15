@@ -37,7 +37,8 @@ export interface TaskMeta extends BaseMeta {
   type: 'task'
   status: TaskStatus
   due?: string
-  reminder?: string
+  reminder?: string // deprecated, keep for backwards compat
+  reminders?: number[] // array of offsets in minutes (0 = at due time)
   repeat?: RepeatConfig | null
   parent?: string | null
   completed_at?: string
