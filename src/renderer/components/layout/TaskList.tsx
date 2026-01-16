@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChevronDown, ListTodo } from 'lucide-react'
 import { useVault } from '../../contexts/VaultContext'
 import { useUI } from '../../contexts/UIContext'
@@ -19,33 +19,24 @@ const COMPLETED_COLLAPSED_KEY = 'tasklist-completed-collapsed'
 function SortableTaskRow({ item, onToggleComplete, isNew = false }: { item: VaultItem; onToggleComplete: (item: VaultItem) => void; isNew?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
   }
 
-  return (
-    <motion.div
+  const content = (
+    <div
       ref={setNodeRef}
       style={style}
-      layout
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{
-        layout: { type: 'spring', stiffness: 400, damping: 30 },
-        opacity: { duration: 0.15 },
-        height: { type: 'spring', stiffness: 400, damping: 30 },
-      }}
-      className="group flex items-start overflow-hidden"
+      className="group flex items-start"
     >
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 w-4 -ml-4 flex items-start justify-center pt-3 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500"
+        className="flex-shrink-0 w-4 -ml-1 -mr-1 flex items-start justify-center pt-2.5 pb-2 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 dark:text-gray-500"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="9" cy="6" r="1.5" />
           <circle cx="15" cy="6" r="1.5" />
           <circle cx="9" cy="12" r="1.5" />
@@ -57,8 +48,27 @@ function SortableTaskRow({ item, onToggleComplete, isNew = false }: { item: Vaul
       <div className="flex-1 min-w-0">
         <TaskRow item={item} onToggleComplete={onToggleComplete} isNew={isNew} />
       </div>
-    </motion.div>
+    </div>
   )
+
+  // Only animate entry for newly created items
+  if (isNew) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        transition={{
+          opacity: { duration: 0.2 },
+          height: { type: 'spring', stiffness: 400, damping: 30 },
+        }}
+        className="overflow-hidden"
+      >
+        {content}
+      </motion.div>
+    )
+  }
+
+  return content
 }
 
 function ProjectGroupHeader({
@@ -509,13 +519,15 @@ export function TaskList() {
                             No tasks in this project
                           </p>
                         ) : (
-                          project.tasks.map((item) => (
-                            <TaskRow
-                              key={item.id}
-                              item={item}
-                              onToggleComplete={handleToggleComplete}
-                            />
-                          ))
+                          <SortableContext items={project.tasks.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                            {project.tasks.map((item) => (
+                              <SortableTaskRow
+                                key={item.id}
+                                item={item}
+                                onToggleComplete={handleToggleComplete}
+                              />
+                            ))}
+                          </SortableContext>
                         )}
                       </div>
                     </div>
@@ -545,18 +557,16 @@ export function TaskList() {
             })}
           />
         ) : (
-          <LayoutGroup>
+          <>
             <SortableContext items={pendingItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-              <AnimatePresence mode="popLayout">
-                {pendingItems.map((item) => (
-                  <SortableTaskRow
-                    key={item.id}
-                    item={item}
-                    onToggleComplete={handleToggleComplete}
-                    isNew={item.id === recentlyCreatedId}
-                  />
-                ))}
-              </AnimatePresence>
+              {pendingItems.map((item) => (
+                <SortableTaskRow
+                  key={item.id}
+                  item={item}
+                  onToggleComplete={handleToggleComplete}
+                  isNew={item.id === recentlyCreatedId}
+                />
+              ))}
             </SortableContext>
 
             {completedItems.length > 0 && (
@@ -584,21 +594,19 @@ export function TaskList() {
                 >
                   <div className="overflow-hidden">
                     <SortableContext items={completedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                      <AnimatePresence mode="popLayout">
-                        {completedItems.map((item) => (
-                          <SortableTaskRow
-                            key={item.id}
-                            item={item}
-                            onToggleComplete={handleToggleComplete}
-                          />
-                        ))}
-                      </AnimatePresence>
+                      {completedItems.map((item) => (
+                        <SortableTaskRow
+                          key={item.id}
+                          item={item}
+                          onToggleComplete={handleToggleComplete}
+                        />
+                      ))}
                     </SortableContext>
                   </div>
                 </div>
               </div>
             )}
-          </LayoutGroup>
+          </>
         )}
         </div>
       </div>

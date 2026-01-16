@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, Menu, MenuItem } from 'electron'
 import path from 'path'
 import { registerIpcHandlers } from './ipc'
 import { watchVault, stopWatching, getVaultPath } from './services/file-service'
@@ -47,6 +47,43 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && getVaultPath()) {
       watchVault(mainWindow)
+    }
+  })
+
+  // Native context menu with spell check
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const menu = new Menu()
+
+    // Spell check suggestions
+    if (params.misspelledWord) {
+      if (params.dictionarySuggestions.length > 0) {
+        params.dictionarySuggestions.forEach((suggestion) => {
+          menu.append(new MenuItem({
+            label: suggestion,
+            click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
+          }))
+        })
+        menu.append(new MenuItem({ type: 'separator' }))
+      }
+
+      menu.append(new MenuItem({
+        label: 'Add to Dictionary',
+        click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      }))
+      menu.append(new MenuItem({ type: 'separator' }))
+    }
+
+    // Standard edit actions
+    if (params.isEditable) {
+      menu.append(new MenuItem({ label: 'Cut', role: 'cut', enabled: params.editFlags.canCut }))
+      menu.append(new MenuItem({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }))
+      menu.append(new MenuItem({ label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste }))
+    } else if (params.selectionText) {
+      menu.append(new MenuItem({ label: 'Copy', role: 'copy' }))
+    }
+
+    if (menu.items.length > 0) {
+      menu.popup()
     }
   })
 

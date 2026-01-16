@@ -1,8 +1,9 @@
 import { useEditor, EditorContent, Editor } from '@tiptap/react'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Bold,
   Italic,
@@ -11,15 +12,10 @@ import {
   Link as LinkIcon,
   X,
   Strikethrough,
-  Code,
-  Quote,
-  FileCode,
-  Heading1,
-  Heading2,
-  Heading3,
+  MoreHorizontal,
 } from 'lucide-react'
 import { marked } from 'marked'
-import { ContextMenu, ContextMenuItem } from './ContextMenu'
+import { ContextMenu } from './ContextMenu'
 
 // Check if text looks like markdown
 function looksLikeMarkdown(text: string): boolean {
@@ -72,6 +68,110 @@ function ToolbarButton({ onClick, isActive, title, children }: ToolbarButtonProp
     >
       {children}
     </button>
+  )
+}
+
+interface BubbleToolbarButtonProps {
+  icon: React.ComponentType<{ className?: string }>
+  isActive: boolean
+  onClick: () => void
+  title: string
+}
+
+function BubbleToolbarButton({ icon: Icon, isActive, onClick, title }: BubbleToolbarButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`p-1.5 rounded transition-colors ${
+        isActive
+          ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400'
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+    </button>
+  )
+}
+
+interface FormatOption {
+  label: string
+  action: () => void
+  isActive: boolean
+  type?: never
+}
+
+interface FormatSeparator {
+  type: 'separator'
+  label?: never
+  action?: never
+  isActive?: never
+}
+
+function FormatDropdown({ editor }: { editor: Editor }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const options: (FormatOption | FormatSeparator)[] = [
+    { label: 'Heading 1', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: editor.isActive('heading', { level: 1 }) },
+    { label: 'Heading 2', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: editor.isActive('heading', { level: 2 }) },
+    { label: 'Heading 3', action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), isActive: editor.isActive('heading', { level: 3 }) },
+    { type: 'separator' },
+    { label: 'Blockquote', action: () => editor.chain().focus().toggleBlockquote().run(), isActive: editor.isActive('blockquote') },
+    { label: 'Code Block', action: () => editor.chain().focus().toggleCodeBlock().run(), isActive: editor.isActive('codeBlock') },
+  ]
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        title="More formatting"
+        className="p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[140px] z-50">
+          {options.map((opt, i) =>
+            opt.type === 'separator' ? (
+              <div key={i} className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+            ) : (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  opt.action()
+                  setIsOpen(false)
+                }}
+                className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
+                  opt.isActive
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -188,14 +288,6 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
   )
 }
 
-interface ContextMenuState {
-  isOpen: boolean
-  x: number
-  y: number
-  hasSelection: boolean
-  isOnLink: boolean
-}
-
 interface LinkInputState {
   isOpen: boolean
   x: number
@@ -212,13 +304,6 @@ export function RichTextEditor({
   showToolbar = true,
   onEditorReady,
 }: RichTextEditorProps) {
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
-    isOpen: false,
-    x: 0,
-    y: 0,
-    hasSelection: false,
-    isOnLink: false,
-  })
   const [linkInput, setLinkInput] = useState<LinkInputState>({
     isOpen: false,
     x: 0,
@@ -227,9 +312,22 @@ export function RichTextEditor({
     selectionTo: 0,
   })
   const [linkUrl, setLinkUrl] = useState('')
+  const isContextMenuOpenRef = useRef(false)
 
-  const closeContextMenu = useCallback(() => {
-    setContextMenu((prev) => ({ ...prev, isOpen: false }))
+  // Hide bubble menu when context menu opens
+  useEffect(() => {
+    const handleContextMenu = () => {
+      isContextMenuOpenRef.current = true
+    }
+    const handleClick = () => {
+      isContextMenuOpenRef.current = false
+    }
+    document.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('click', handleClick)
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('click', handleClick)
+    }
   }, [])
 
   const closeLinkInput = useCallback(() => {
@@ -309,169 +407,95 @@ export function RichTextEditor({
     }
   }, [editor, onEditorReady])
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      if (!editor) return
-
-      // Check if there's selected text
+  const handleLinkClick = useCallback(() => {
+    if (!editor) return
+    if (editor.isActive('link')) {
+      editor.chain().focus().unsetLink().run()
+    } else {
       const { from, to } = editor.state.selection
-      const hasSelection = from !== to
-      const isOnLink = editor.isActive('link')
-
-      // Show context menu if there's a selection OR cursor is on a link
-      if (hasSelection || isOnLink) {
-        e.preventDefault()
-        setContextMenu({
-          isOpen: true,
-          x: e.clientX,
-          y: e.clientY,
-          hasSelection,
-          isOnLink,
-        })
-      }
-    },
-    [editor]
-  )
-
-  const applyFormatting = useCallback(
-    (action: () => void) => {
-      action()
-      closeContextMenu()
-    },
-    [closeContextMenu]
-  )
+      setLinkInput({
+        isOpen: true,
+        x: 0,
+        y: 0,
+        selectionFrom: from,
+        selectionTo: to,
+      })
+    }
+  }, [editor])
 
   return (
     <div className={className}>
       {showToolbar && <EditorToolbar editor={editor} />}
-      <div onContextMenu={handleContextMenu}>
-        <EditorContent editor={editor} className="prose prose-sm dark:prose-invert max-w-none min-h-[100px] outline-none text-gray-900 dark:text-gray-100" />
-      </div>
+      <EditorContent editor={editor} className="prose prose-sm dark:prose-invert max-w-none min-h-[100px] outline-none text-gray-900 dark:text-gray-100" />
 
-      {contextMenu.isOpen && editor && (
-        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
-          {contextMenu.hasSelection && (
-            <>
-              {/* Text formatting */}
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleBold().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Bold size={14} /> Bold
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleItalic().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Italic size={14} /> Italic
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleStrike().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Strikethrough size={14} /> Strikethrough
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleCode().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Code size={14} /> Inline Code
-                </span>
-              </ContextMenuItem>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-              {/* Headings */}
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Heading1 size={14} /> Heading 1
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Heading2 size={14} /> Heading 2
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Heading3 size={14} /> Heading 3
-                </span>
-              </ContextMenuItem>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-              {/* Lists */}
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleBulletList().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <List size={14} /> Bullet List
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleOrderedList().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <ListOrdered size={14} /> Numbered List
-                </span>
-              </ContextMenuItem>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-              {/* Blocks */}
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleBlockquote().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <Quote size={14} /> Blockquote
-                </span>
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => applyFormatting(() => editor.chain().focus().toggleCodeBlock().run())}
-              >
-                <span className="flex items-center gap-2">
-                  <FileCode size={14} /> Code Block
-                </span>
-              </ContextMenuItem>
-              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-              {/* Links */}
-              <ContextMenuItem
-                onClick={() => {
-                  if (editor.isActive('link')) {
-                    applyFormatting(() => editor.chain().focus().unsetLink().run())
-                  } else {
-                    // Save selection and position, then show link input
-                    const { from, to } = editor.state.selection
-                    setLinkInput({
-                      isOpen: true,
-                      x: contextMenu.x,
-                      y: contextMenu.y,
-                      selectionFrom: from,
-                      selectionTo: to,
-                    })
-                    closeContextMenu()
-                  }
-                }}
-              >
-                <span className="flex items-center gap-2">
-                  <LinkIcon size={14} /> {editor.isActive('link') ? 'Remove Link' : 'Add Link'}
-                </span>
-              </ContextMenuItem>
-            </>
-          )}
-          {!contextMenu.hasSelection && contextMenu.isOnLink && (
-            <ContextMenuItem
-              onClick={() => applyFormatting(() => editor.chain().focus().unsetLink().run())}
-            >
-              <span className="flex items-center gap-2">
-                <LinkIcon size={14} /> Remove Link
-              </span>
-            </ContextMenuItem>
-          )}
-        </ContextMenu>
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          updateDelay={100}
+          shouldShow={({ editor: e, view, state, from, to }) => {
+            // Hide when native context menu is open
+            if (isContextMenuOpenRef.current) return false
+
+            // Default BubbleMenu logic
+            const { doc, selection } = state
+            const isEmptyTextBlock = !doc.textBetween(from, to).length && selection.empty
+            const hasEditorFocus = view.hasFocus()
+
+            if (!hasEditorFocus || isEmptyTextBlock || !e.isEditable) {
+              return false
+            }
+
+            return true
+          }}
+          className="flex items-center gap-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1"
+        >
+          <BubbleToolbarButton
+            icon={Bold}
+            isActive={editor.isActive('bold')}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="Bold"
+          />
+          <BubbleToolbarButton
+            icon={Italic}
+            isActive={editor.isActive('italic')}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="Italic"
+          />
+          <BubbleToolbarButton
+            icon={Strikethrough}
+            isActive={editor.isActive('strike')}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            title="Strikethrough"
+          />
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          <BubbleToolbarButton
+            icon={List}
+            isActive={editor.isActive('bulletList')}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            title="Bullet list"
+          />
+          <BubbleToolbarButton
+            icon={ListOrdered}
+            isActive={editor.isActive('orderedList')}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            title="Numbered list"
+          />
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          <BubbleToolbarButton
+            icon={LinkIcon}
+            isActive={editor.isActive('link')}
+            onClick={handleLinkClick}
+            title={editor.isActive('link') ? 'Remove link' : 'Add link'}
+          />
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          <FormatDropdown editor={editor} />
+        </BubbleMenu>
       )}
 
       {linkInput.isOpen && editor && (

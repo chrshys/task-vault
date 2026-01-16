@@ -253,12 +253,14 @@ export function InlineDueDatePicker({
   return (
     <div
       ref={containerRef}
-      className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+      className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-y-auto"
       onClick={(e) => e.stopPropagation()}
       style={{
         top: dropdownPosition.top,
+        bottom: dropdownPosition.bottom,
         left: dropdownPosition.left,
         right: dropdownPosition.right,
+        maxHeight: dropdownPosition.maxHeight,
       }}
     >
       {/* Quick shortcuts */}

@@ -35,7 +35,7 @@ interface TreeDndProviderProps {
 }
 
 export function TreeDndProvider({ children }: TreeDndProviderProps) {
-  const { items, moveItem, updateSortOrder, vaultPath, setProjectSection, sectionOrder, reorderSections } = useVault()
+  const { items, moveItem, updateSortOrders, vaultPath, setProjectSection, sectionOrder, reorderSections } = useVault()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<VaultItem | null>(null)
 
@@ -118,9 +118,10 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
 
             if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
               const reordered = arrayMove(siblings, oldIndex, newIndex)
-              for (let i = 0; i < reordered.length; i++) {
-                await updateSortOrder(reordered[i].id, i)
-              }
+              await updateSortOrders(reordered.map((item, index) => ({
+                itemPath: item.id,
+                newOrder: index,
+              })))
             }
           } else {
             const sourceSiblings = Array.from(items.values())
@@ -140,14 +141,17 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
             const projectPath = path.dirname(draggedItem.path)
             await setProjectSection(projectPath, targetSectionKey === DEFAULT_SECTION_KEY ? null : targetSectionKey)
 
-            for (let i = 0; i < reorderedTarget.length; i++) {
-              await updateSortOrder(reorderedTarget[i].id, i)
-            }
-
             const reorderedSource = sourceSiblings.filter(i => i.id !== activeId)
-            for (let i = 0; i < reorderedSource.length; i++) {
-              await updateSortOrder(reorderedSource[i].id, i)
-            }
+            await updateSortOrders([
+              ...reorderedTarget.map((item, index) => ({
+                itemPath: item.id,
+                newOrder: index,
+              })),
+              ...reorderedSource.map((item, index) => ({
+                itemPath: item.id,
+                newOrder: index,
+              })),
+            ])
           }
         }
         return
@@ -179,9 +183,10 @@ export function TreeDndProvider({ children }: TreeDndProviderProps) {
 
           if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
             const reordered = arrayMove(siblings, oldIndex, newIndex)
-            for (let i = 0; i < reordered.length; i++) {
-              await updateSortOrder(reordered[i].path, i)
-            }
+            await updateSortOrders(reordered.map((item, index) => ({
+              itemPath: item.path,
+              newOrder: index,
+            })))
             return
           }
         }

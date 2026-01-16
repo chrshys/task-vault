@@ -288,10 +288,12 @@ export function DueDatePicker({
       </button>
 
       {isOpen && dropdownPosition && (
-        <div className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden" style={{
+        <div className="fixed z-[100] w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-y-auto" style={{
           top: dropdownPosition.top,
+          bottom: dropdownPosition.bottom,
           left: dropdownPosition.left,
           right: dropdownPosition.right,
+          maxHeight: dropdownPosition.maxHeight,
         }}>
           {/* Quick shortcuts */}
           <div className="flex justify-around p-3 border-b border-gray-200 dark:border-gray-700">

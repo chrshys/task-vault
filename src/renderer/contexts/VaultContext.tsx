@@ -36,6 +36,7 @@ interface VaultContextValue {
   getSubtasks: (parentId: string) => VaultTask[]
   deleteProject: (projectPath: string) => Promise<void>
   updateSortOrder: (itemPath: string, newOrder: number) => Promise<void>
+  updateSortOrders: (updates: Array<{ itemPath: string; newOrder: number }>) => Promise<void>
   addSection: (sectionName: string) => Promise<void>
   reorderSections: (order: string[]) => Promise<void>
   setProjectSection: (projectPath: string, sectionName: string | null, projectItem?: VaultItem) => Promise<void>
@@ -623,39 +624,46 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return newPath
   }, [rebuildSections, findProjectByDirPath])
 
-  const updateSortOrder = useCallback(async (itemPath: string, newOrder: number) => {
-    // Try finding by directory path first (for projects)
-    let item = findProjectByDirPath(itemPath)
+  const updateSortOrders = useCallback(async (updates: Array<{ itemPath: string; newOrder: number }>) => {
+    if (updates.length === 0) return
 
-    // If not found, try finding by file path (for tasks/notes)
-    if (!item) {
-      item = Array.from(items.values()).find(i => i.path === itemPath)
+    const itemsByPath = new Map<string, VaultItem>()
+    for (const item of items.values()) {
+      itemsByPath.set(item.path, item)
     }
 
-    if (!item) {
-      throw new Error('Item not found')
-    }
+    const modifiedAt = new Date().toISOString()
+    const updatedItems: VaultItem[] = updates.map(({ itemPath, newOrder }) => {
+      const item = findProjectByDirPath(itemPath) ?? itemsByPath.get(itemPath)
+      if (!item) {
+        throw new Error('Item not found')
+      }
+      return {
+        ...item,
+        meta: {
+          ...item.meta,
+          sort_order: newOrder,
+          modified: modifiedAt,
+        } as ItemMeta,
+      }
+    })
 
-    const updatedItem: VaultItem = {
-      ...item,
-      meta: {
-        ...item.meta,
-        sort_order: newOrder,
-        modified: new Date().toISOString(),
-      } as ItemMeta,
-    }
-
-    // Update local state immediately for responsive UI
+    // Update local state in one batch to avoid intermediate reorders.
     setItems(prev => {
       const next = new Map(prev)
-      next.set(updatedItem.id, updatedItem)
+      for (const item of updatedItems) {
+        next.set(item.id, item)
+      }
       rebuildSections(next)
       return next
     })
 
-    // Then persist to disk
-    await updateItem(updatedItem)
-  }, [findProjectByDirPath, updateItem, rebuildSections, items])
+    await Promise.all(updatedItems.map(item => updateItem(item)))
+  }, [findProjectByDirPath, items, rebuildSections, updateItem])
+
+  const updateSortOrder = useCallback(async (itemPath: string, newOrder: number) => {
+    await updateSortOrders([{ itemPath, newOrder }])
+  }, [updateSortOrders])
 
   const setProjectSection = useCallback(async (projectPath: string, sectionName: string | null, projectItem?: VaultItem) => {
     const resolvedProjectItem = projectItem ?? findProjectByDirPath(projectPath)
@@ -891,6 +899,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         getSubtasks,
         deleteProject,
         updateSortOrder,
+        updateSortOrders,
         addSection,
         reorderSections,
         setProjectSection,

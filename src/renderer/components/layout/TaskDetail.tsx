@@ -16,6 +16,8 @@ export function TaskDetail() {
   // localItem tracks user edits. Component remounts when selectedTaskId changes (via Panel key),
   // so localItem is always initialized with the current selectedItem.
   const [localItem, setLocalItem] = useState<VaultItem | null>(selectedItem ?? null)
+  // Track previous selectedItem to detect external changes (React-recommended pattern)
+  const [prevSelectedItem, setPrevSelectedItem] = useState(selectedItem)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
@@ -138,6 +140,32 @@ export function TaskDetail() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showMoreMenu])
+
+  // Sync task completion status from external changes (e.g., TaskList checkbox)
+  // Uses React-recommended "adjust state during render" pattern instead of effect
+  if (selectedItem !== prevSelectedItem) {
+    setPrevSelectedItem(selectedItem)
+    if (
+      selectedItem &&
+      localItem &&
+      selectedItem.id === localItem.id &&
+      selectedItem.meta.type === 'task' &&
+      localItem.meta.type === 'task'
+    ) {
+      const selectedMeta = selectedItem.meta as TaskMeta
+      const localMeta = localItem.meta as TaskMeta
+      if (selectedMeta.status !== localMeta.status || selectedMeta.completed_at !== localMeta.completed_at) {
+        setLocalItem({
+          ...localItem,
+          meta: {
+            ...localItem.meta,
+            status: selectedMeta.status,
+            completed_at: selectedMeta.completed_at,
+          } as TaskMeta,
+        })
+      }
+    }
+  }
 
   if (!localItem) {
     return (

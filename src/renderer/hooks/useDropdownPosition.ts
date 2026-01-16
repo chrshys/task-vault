@@ -5,6 +5,8 @@ interface DropdownPosition {
   bottom?: number
   left?: number
   right?: number
+  /** Maximum height available in the positioned direction */
+  maxHeight?: number
 }
 
 interface UseDropdownPositionOptions {
@@ -46,12 +48,15 @@ function calculatePosition(
   if (preferTop && spaceAbove >= height) {
     // Position above
     newPosition.bottom = viewportHeight - rect.top + 4
+    newPosition.maxHeight = spaceAbove - 4
   } else if (spaceBelow >= height || spaceBelow >= spaceAbove) {
     // Position below (default)
     newPosition.top = rect.bottom + 4
+    newPosition.maxHeight = spaceBelow - 4
   } else {
     // Position above (not enough space below)
     newPosition.bottom = viewportHeight - rect.top + 4
+    newPosition.maxHeight = spaceAbove - 4
   }
 
   // Horizontal positioning
