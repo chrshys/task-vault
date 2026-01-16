@@ -69,7 +69,13 @@ function AppContent() {
     async function init() {
       const settings: AppSettings = await window.api.getSettings()
       if (settings.vaultPath) {
-        await loadVault(settings.vaultPath)
+        try {
+          await loadVault(settings.vaultPath)
+        } catch (err) {
+          // Vault folder no longer exists - clear it from settings
+          console.error('Failed to load vault:', err)
+          await window.api.setSettings({ ...settings, vaultPath: null })
+        }
       }
       setInitialized(true)
     }
