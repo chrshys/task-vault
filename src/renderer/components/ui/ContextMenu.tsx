@@ -33,7 +33,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 z-50 min-w-[160px]"
+      className="fixed flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 z-50"
       style={{ left: x, top: y }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -54,7 +54,7 @@ export function ContextMenuItem({ onClick, variant = 'default', children }: Cont
     <button
       type="button"
       onClick={onClick}
-      className={`w-full px-3 py-1.5 text-left text-sm ${
+      className={`flex items-center gap-2 px-3 py-1.5 text-left text-sm whitespace-nowrap ${
         variant === 'danger'
           ? 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
